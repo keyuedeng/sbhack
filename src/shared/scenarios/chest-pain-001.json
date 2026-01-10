@@ -1,0 +1,285 @@
+{
+  "caseId": "chest-pain-001",
+  "level": 1,
+  "title": "Acute Chest Pain in Emergency Department",
+  "description": "58-year-old woman presents with chest pain - classic NSTEMI presentation",
+  "specialty": "emergency medicine",
+  
+  "patient": {
+    "name": "Sarah Johnson",
+    "age": 58,
+    "sex": "F",
+    "chiefComplaint": "Chest pain for 2 hours",
+    
+    "personality": {
+      "baseline": "anxious, cooperative, health-conscious",
+      "emotionalState": "fearful and worried it's her heart",
+      "communicationStyle": "detailed answers, asks clarifying questions, wants reassurance"
+    }
+  },
+  
+  "history": {
+    "hpi": "Patient reports substernal chest pressure that started 2 hours ago while gardening. Describes it as 'heavy feeling, like an elephant sitting on my chest.' Pain radiates to left arm and jaw. Associated with mild shortness of breath and nausea. Tried antacids with no relief. Denies palpitations or loss of consciousness.",
+    
+    "pmh": [
+      "Hypertension (controlled)",
+      "Type 2 Diabetes Mellitus",
+      "Hyperlipidemia"
+    ],
+    
+    "medications": [
+      "Lisinopril 10mg daily",
+      "Metformin 1000mg twice daily",
+      "Atorvastatin 40mg nightly"
+    ],
+    
+    "allergies": [
+      "Penicillin (rash)"
+    ],
+    
+    "familyHistory": "Father had heart attack at age 62, mother has diabetes",
+    
+    "socialHistory": {
+      "smoking": "Former smoker, quit 5 years ago, 20 pack-year history",
+      "alcohol": "Occasional wine with dinner",
+      "drugs": "Denies",
+      "occupation": "Elementary school teacher",
+      "livingSituation": "Lives with husband, two adult children nearby"
+    }
+  },
+  
+  "physicalExam": {
+    "vitals": {
+      "level1": {
+        "BP": "145/90",
+        "HR": 88,
+        "RR": 16,
+        "temp": 37.0,
+        "O2": 98
+      },
+      "level2": {
+        "BP": "158/95",
+        "HR": 102,
+        "RR": 20,
+        "temp": 37.1,
+        "O2": 96,
+        "diaphoretic": true
+      },
+      "level3": {
+        "BP": "170/100",
+        "HR": 115,
+        "RR": 24,
+        "temp": 37.2,
+        "O2": 94,
+        "diaphoretic": true,
+        "pale": true
+      }
+    },
+    
+    "general": {
+      "level1": "Anxious-appearing woman in mild distress, holding chest",
+      "level2": "Anxious woman in moderate distress, diaphoretic, pale",
+      "level3": "Ill-appearing woman in significant distress, diaphoretic, clutching chest"
+    },
+    
+    "cardiovascular": {
+      "level1": "Regular rate and rhythm, no murmurs, rubs, or gallops. Pulses equal bilaterally.",
+      "level2": "Tachycardic, regular rhythm, no murmurs. Capillary refill <2 seconds.",
+      "level3": "Tachycardic, possible S4 gallop, JVD present. Peripheral pulses intact but weak."
+    },
+    
+    "respiratory": {
+      "level1": "Clear to auscultation bilaterally, no wheezes or crackles",
+      "level2": "Clear to auscultation, mild tachypnea",
+      "level3": "Bilateral basilar crackles, increased work of breathing"
+    },
+    
+    "abdominal": {
+      "level1": "Soft, non-tender, non-distended, normal bowel sounds",
+      "level2": "Soft, non-tender, non-distended, normal bowel sounds",
+      "level3": "Soft, non-tender, non-distended, normal bowel sounds"
+    }
+  },
+  
+  "diagnostics": {
+    "labs": {
+      "available": ["CBC", "BMP", "Troponin", "BNP", "Lipid Panel"],
+      "results": {
+        "Troponin": {
+          "level1": { "value": 0.8, "unit": "ng/mL", "normal": "<0.04" },
+          "level2": { "value": 2.5, "unit": "ng/mL", "normal": "<0.04" },
+          "level3": { "value": 5.2, "unit": "ng/mL", "normal": "<0.04" }
+        },
+        "BMP": {
+          "level1": { "Na": 138, "K": 4.2, "Cl": 102, "CO2": 24, "BUN": 18, "Cr": 1.0, "Glucose": 145 },
+          "level2": { "Na": 137, "K": 4.5, "Cl": 101, "CO2": 23, "BUN": 20, "Cr": 1.1, "Glucose": 165 },
+          "level3": { "Na": 136, "K": 4.8, "Cl": 100, "CO2": 22, "BUN": 24, "Cr": 1.3, "Glucose": 185 }
+        }
+      }
+    },
+    
+    "imaging": {
+      "available": ["Chest X-ray", "CT Chest"],
+      "results": {
+        "Chest X-ray": {
+          "level1": "No acute cardiopulmonary process. Normal heart size.",
+          "level2": "Mild cardiomegaly. No infiltrates or effusions.",
+          "level3": "Cardiomegaly with pulmonary vascular congestion. Small bilateral pleural effusions."
+        }
+      }
+    },
+    
+    "ekg": {
+      "level1": "Sinus rhythm, rate 88. ST segment depression in leads V3-V6 (1mm). No acute ST elevation.",
+      "level2": "Sinus tachycardia, rate 102. ST depression in leads II, III, aVF, V4-V6 (1-2mm). T wave inversions in V3-V5.",
+      "level3": "Sinus tachycardia, rate 115. Widespread ST depression (2-3mm). Deep T wave inversions anterolaterally. Possible acute coronary syndrome pattern."
+    }
+  },
+  
+  "diagnosis": {
+    "primary": "NSTEMI (Non-ST Elevation Myocardial Infarction)",
+    "differentials": [
+      "Unstable angina",
+      "Acute coronary syndrome",
+      "GERD",
+      "Costochondritis",
+      "Pulmonary embolism"
+    ],
+    "criticalActions": [
+      "Aspirin 325mg chewed",
+      "Obtain EKG within 10 minutes",
+      "Order troponin",
+      "IV access",
+      "Continuous cardiac monitoring",
+      "Nitroglycerin sublingual",
+      "Consult cardiology"
+    ],
+    "avoidActions": [
+      "Discharge home",
+      "Give NSAIDs",
+      "Delay EKG"
+    ]
+  },
+  
+  "revealRules": {
+    "hpi": "always",
+    "pmh": "when_asked",
+    "medications": "when_asked",
+    "allergies": "always",
+    "socialHistory": "only_if_asked",
+    "familyHistory": "only_if_asked"
+  },
+  
+  "progression": {
+    "timeBasedChanges": [
+      {
+        "atMinute": 15,
+        "condition": "no aspirin given",
+        "changes": {
+          "vitals": {
+            "BP": "160/95",
+            "HR": 105
+          },
+          "symptoms": "Patient reports pain worsening from 7/10 to 9/10",
+          "emotionalState": "increasingly anxious, asking 'Am I going to die?'"
+        }
+      },
+      {
+        "atMinute": 30,
+        "condition": "no aspirin and no EKG",
+        "changes": {
+          "vitals": {
+            "BP": "170/100",
+            "HR": 115,
+            "O2": 94
+          },
+          "symptoms": "Severe chest pain, diaphoretic, nauseated",
+          "patientState": "appears worse, clutching chest"
+        }
+      }
+    ],
+    
+    "actionTriggeredChanges": [
+      {
+        "trigger": "aspirin_given",
+        "changes": {
+          "symptoms": "Pain improves slightly from 8/10 to 6/10",
+          "patientResponse": "Thank you, doctor. I do feel a bit better.",
+          "emotionalState": "slightly less anxious"
+        },
+        "delay": 5
+      },
+      {
+        "trigger": "nitroglycerin_given",
+        "changes": {
+          "vitals": {
+            "BP": "130/80"
+          },
+          "symptoms": "Chest pain decreases to 4/10",
+          "patientResponse": "The pressure is easing up a bit."
+        },
+        "delay": 2
+      }
+    ],
+    
+    "redFlags": [
+      {
+        "action": "Obtain EKG",
+        "timeWindow": 10,
+        "severity": "critical",
+        "consequence": "Delayed diagnosis of acute MI"
+      },
+      {
+        "action": "Give aspirin",
+        "timeWindow": 20,
+        "severity": "critical",
+        "consequence": "Increased risk of mortality and myocardial damage"
+      },
+      {
+        "action": "Order troponin",
+        "timeWindow": 15,
+        "severity": "critical",
+        "consequence": "Missed MI diagnosis"
+      },
+      {
+        "action": "Consult cardiology",
+        "timeWindow": 60,
+        "severity": "important",
+        "consequence": "Delayed intervention for acute coronary syndrome"
+      }
+    ],
+    
+    "deterioration": [
+      {
+        "trigger": "no aspirin given within 20 minutes",
+        "newVitals": {
+          "BP": "100/60",
+          "HR": 125,
+          "O2": 92
+        },
+        "newSymptoms": "Patient becomes hypotensive, chest pain 10/10, severe dyspnea",
+        "newFindings": "Cardiogenic shock developing",
+        "severity": "critical"
+      }
+    ]
+  },
+  
+  "guardrails": {
+    "patientCannotSay": [
+      "I think I'm having a heart attack",
+      "You should order an EKG",
+      "My troponin is probably elevated",
+      "I need aspirin",
+      "This could be a pulmonary embolism"
+    ],
+    "patientMustStayInCharacter": true,
+    "noSelfDiagnosis": true,
+    "noMedicalAdvice": true,
+    "noHallucination": true,
+    "customRules": [
+      "Patient is educated but not medically trained - uses layperson terms",
+      "Patient can express fear about heart problems but not diagnose",
+      "Patient may ask 'Is this my heart?' but cannot state specific conditions"
+    ]
+  }
+}
