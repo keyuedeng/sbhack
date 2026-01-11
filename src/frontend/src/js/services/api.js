@@ -47,9 +47,11 @@ class ApiService {
    * Send a message to the patient
    * @param {string} sessionId - The session ID
    * @param {string} message - The user's message
-   * @returns {Promise<{patientReply: string, currentTurn: number, maxTurns?: number, isActive: boolean}>}
+   * @param {string} [mode] - Optional mode: 'test' or 'learning'
+   * @param {string} [guidanceLevel] - Optional guidance level: 'low', 'medium', or 'high' (for learning mode)
+   * @returns {Promise<{patientReply: string, currentTurn: number, maxTurns?: number, isActive: boolean, guidance?: {type: string, message: string}}>}
    */
-  async sendMessage(sessionId, message) {
+  async sendMessage(sessionId, message, mode, guidanceLevel) {
     try {
       const response = await fetch(`${API_BASE_URL}/session/message`, {
         method: 'POST',
@@ -59,6 +61,8 @@ class ApiService {
         body: JSON.stringify({
           sessionId,
           message,
+          mode, // Optional: 'test' or 'learning'
+          guidanceLevel, // Optional: 'low', 'medium', or 'high' (for learning mode)
         }),
       });
 
