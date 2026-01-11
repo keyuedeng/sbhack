@@ -7,7 +7,7 @@ import { apiService } from './services/api.js';
 import { Timer } from './utils/timer.js';
 import { addMessage, clearMessages } from './components/messages.js';
 import { updatePatientInfo } from './components/patientInfo.js';
-import { displayFeedback, clearFeedback, displayGuidance } from './components/feedback.js';
+import { displayFeedback, clearFeedback, displayGuidance, hideFeedbackOverlay, setRetakeCallback, initRetakeButton } from './components/feedback.js';
 
 // Page modules
 import { initHomePage, showHomePage, hideHomePage } from './pages/homePage.js';
@@ -296,24 +296,26 @@ async function submitDiagnosis() {
     try {
       const feedback = await apiService.getFeedback(currentSessionId);
       
-      // Display feedback in learning mode
-      if (currentMode === 'learning') {
-        displayFeedback(feedback);
-      }
-      
       // Check if diagnosis is correct (diagnosis score >= 20 means correct primary diagnosis)
       isCorrect = feedback.breakdown.diagnosis >= 20;
+      
+      // Display feedback (in overlay for test mode, sidebar for learning mode)
+      displayFeedback(feedback, currentMode, isCorrect);
+      
+      // Fade out chat background when showing feedback in test mode
+      if (currentMode === 'test') {
+        const mainContentArea = document.querySelector('#simulationPage > .flex-1');
+        if (mainContentArea) mainContentArea.classList.add('chat-faded');
+      }
     } catch (error) {
       console.error('Error getting feedback:', error);
       // If feedback fails, default to incorrect
       isCorrect = false;
     }
 
-    // Show finish page with correct status
+    // Stop timer and hide diagnose button
     timer.stop();
     hideDiagnoseButton();
-    setFinishPageState(isCorrect);
-    showPage(finishPageEl);
 
   } catch (error) {
     console.error('Error submitting diagnosis:', error);
@@ -383,4 +385,27 @@ document.addEventListener('DOMContentLoaded', () => {
   diagnosisModal.addEventListener('click', (e) => {
     if (e.target === diagnosisModal) hideDiagnosisModal();
   });
+
+  // Event listener - Feedback Overlay Close Button
+  const closeFeedbackButton = document.getElementById('closeFeedbackButton');
+  if (closeFeedbackButton) {
+    closeFeedbackButton.addEventListener('click', () => {
+      hideFeedbackOverlay();
+      goHome();
+    });
+  }
+  
+  // Set up retake callback
+  setRetakeCallback(() => {
+    hideFeedbackOverlay();
+    // Restart the session with the same mode and level
+    if (currentMode && guidanceLevel !== undefined) {
+      initializeInterface(currentMode, guidanceLevel);
+    } else if (currentMode) {
+      initializeInterface(currentMode);
+    }
+  });
+  
+  // Initialize retake button
+  initRetakeButton();
 });

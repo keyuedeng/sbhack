@@ -60,6 +60,8 @@ export async function analyzeSession(
     summaryScore,
     breakdown: {
       diagnosis: context.diagnosisScore,
+      diagnosisCorrectness: context.diagnosisCorrectnessScore || 0,
+      intervention: context.interventionScore || 0,
       criticalActions: context.criticalActionsScore,
       communication: context.communicationScore,
       efficiency: context.efficiencyScore
@@ -73,6 +75,10 @@ export async function analyzeSession(
     whatWentWell,
     missed,
     redFlagsMissed,
-    recommendations
+    recommendations,
+    solution: {
+      primaryDiagnosis: caseData.diagnosis.primary,
+      criticalActions: caseData.diagnosis.criticalActions
+    }
   };
 }

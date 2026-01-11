@@ -59,6 +59,13 @@
                 transform: translateY(0);
             }
         }
+        
+        /* Fade-out animation for chat background */
+        .chat-faded {
+            opacity: 0.3;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
         .animate-fade-in {
             animation: fadeIn 0.3s ease-out;
         }
@@ -172,6 +179,9 @@
                         <button id="sendButton" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-md">
                             Send
                         </button>
+                        <button id="diagnoseButton" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-xl transition-all shadow-md hidden">
+                            🎯 Diagnose
+                        </button>
                     </div>
                 </div>
             </div>
@@ -185,11 +195,41 @@
             </div>
         </div>
 
-        <!-- Diagnose Button -->
-        <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1500]">
-            <button id="diagnoseButton" class="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-none px-12 py-4 text-lg font-semibold rounded-xl shadow-2xl hover:shadow-3xl hover:from-purple-700 hover:to-purple-800 active:scale-[0.98] transition-all hidden">
-                🎯 I'm ready to diagnose
-            </button>
+        <!-- Feedback Overlay (Test Mode) -->
+        <div id="feedbackOverlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[2000] hidden flex items-center justify-center p-6">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div id="feedbackStatus" class="text-4xl font-extrabold"></div>
+                        <div class="text-2xl font-bold text-gray-900">Session Feedback</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button id="retakeButton" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-sm">
+                            🔄 Retake
+                        </button>
+                        <button id="closeFeedbackButton" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <!-- Tabs -->
+                <div class="flex border-b border-gray-200 bg-gray-50">
+                    <button id="feedbackTab" class="tab-button flex-1 px-6 py-4 font-semibold text-gray-700 border-b-2 border-blue-600 bg-white transition-colors">
+                        Feedback
+                    </button>
+                    <button id="recommendationsTab" class="tab-button flex-1 px-6 py-4 font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+                        Recommendations
+                    </button>
+                    <button id="solutionTab" class="tab-button flex-1 px-6 py-4 font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+                        Solution
+                    </button>
+                </div>
+                <div id="feedbackOverlayContent" class="flex-1 overflow-y-auto p-6">
+                    <!-- Feedback content will be inserted here -->
+                </div>
+            </div>
         </div>
     </div>
 
