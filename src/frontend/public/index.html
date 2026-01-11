@@ -47,6 +47,28 @@
         #finishPage.active {
             display: flex !important;
         }
+        
+        /* Fade-in animation */
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        /* Fade-out animation for chat background */
+        .chat-faded {
+            opacity: 0.3;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .animate-fade-in {
+            animation: fadeIn 0.3s ease-out;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen font-sans">
@@ -58,15 +80,38 @@
     
     <!-- Title Page -->
     <div id="titlePage" class="page fixed inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col items-center justify-center z-[1000]">
-        <div class="text-center">
+        <div class="text-center max-w-4xl px-6">
             <div id="titleText" class="text-7xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 min-h-[80px]"></div>
-            <div id="modeButtonsContainer" class="hidden gap-6 mt-12 flex justify-center">
-                <button id="learningModeButton" class="px-16 py-5 text-xl font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all">
-                    📚 Learning Mode
-                </button>
-                <button id="testModeButton" class="px-16 py-5 text-xl font-semibold bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl hover:from-purple-600 hover:to-purple-700 active:scale-[0.98] transition-all">
-                    🧪 Test Mode
-                </button>
+            <div id="modeButtonsContainer" class="hidden gap-6 mt-12 flex flex-col items-center">
+                <!-- Learning Mode with Guidance Levels -->
+                <div class="mb-4">
+                    <button id="learningModeButton" class="px-16 py-5 text-xl font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all mb-4">
+                        📚 Learning Mode
+                    </button>
+                    <div id="guidanceLevelContainer" class="hidden mt-4 space-y-3 bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border-2 border-blue-200">
+                        <div class="text-lg font-bold text-gray-800 mb-4">Select Guidance Level:</div>
+                        <div class="flex flex-col gap-3">
+                            <button id="guidanceLowButton" class="guidance-level-btn px-6 py-3 text-base font-semibold bg-green-50 hover:bg-green-100 text-green-700 border-2 border-green-300 rounded-lg transition-all text-left">
+                                <div class="font-bold">🌱 Minimal Guidance</div>
+                                <div class="text-sm text-gray-600 mt-1">Socratic questions to encourage independent thinking</div>
+                            </button>
+                            <button id="guidanceMediumButton" class="guidance-level-btn px-6 py-3 text-base font-semibold bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-2 border-yellow-300 rounded-lg transition-all text-left">
+                                <div class="font-bold">💡 Moderate Guidance</div>
+                                <div class="text-sm text-gray-600 mt-1">Educational hints with medical knowledge context</div>
+                            </button>
+                            <button id="guidanceHighButton" class="guidance-level-btn px-6 py-3 text-base font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border-2 border-blue-300 rounded-lg transition-all text-left">
+                                <div class="font-bold">📖 Extensive Guidance</div>
+                                <div class="text-sm text-gray-600 mt-1">Detailed explanations and learning support</div>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <!-- Test Mode -->
+                <div>
+                    <button id="testModeButton" class="px-16 py-5 text-xl font-semibold bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl hover:from-purple-600 hover:to-purple-700 active:scale-[0.98] transition-all">
+                        🧪 Test Mode
+                    </button>
+                </div>
             </div>
         </div>
     </div>
@@ -134,6 +179,9 @@
                         <button id="sendButton" class="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl transition-colors shadow-md">
                             Send
                         </button>
+                        <button id="diagnoseButton" class="px-6 py-3 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white font-semibold rounded-xl transition-all shadow-md hidden">
+                            🎯 Diagnose
+                        </button>
                     </div>
                 </div>
             </div>
@@ -147,19 +195,58 @@
             </div>
         </div>
 
-        <!-- Diagnose Button -->
-        <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1500]">
-            <button id="diagnoseButton" class="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-none px-12 py-4 text-lg font-semibold rounded-xl shadow-2xl hover:shadow-3xl hover:from-purple-700 hover:to-purple-800 active:scale-[0.98] transition-all hidden">
-                🎯 I'm ready to diagnose
-            </button>
+        <!-- Feedback Overlay (Test Mode) -->
+        <div id="feedbackOverlay" class="fixed inset-0 bg-black/50 backdrop-blur-sm z-[2000] hidden flex items-center justify-center p-6">
+            <div class="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+                <div class="p-6 border-b border-gray-200 flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div id="feedbackStatus" class="text-4xl font-extrabold"></div>
+                        <div class="text-2xl font-bold text-gray-900">Session Feedback</div>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <button id="retakeButton" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-lg transition-colors text-sm">
+                            🔄 Retake
+                        </button>
+                        <button id="closeFeedbackButton" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors">
+                            <svg class="w-5 h-5 text-gray-700" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <!-- Tabs -->
+                <div class="flex border-b border-gray-200 bg-gray-50">
+                    <button id="feedbackTab" class="tab-button flex-1 px-6 py-4 font-semibold text-gray-700 border-b-2 border-blue-600 bg-white transition-colors">
+                        Feedback
+                    </button>
+                    <button id="recommendationsTab" class="tab-button flex-1 px-6 py-4 font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+                        Recommendations
+                    </button>
+                    <button id="solutionTab" class="tab-button flex-1 px-6 py-4 font-semibold text-gray-500 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+                        Solution
+                    </button>
+                </div>
+                <div id="feedbackOverlayContent" class="flex-1 overflow-y-auto p-6">
+                    <!-- Feedback content will be inserted here -->
+                </div>
+            </div>
         </div>
     </div>
 
     <!-- Diagnosis Modal -->
     <div id="diagnosisModal" class="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-[3000] hidden">
         <div class="bg-white rounded-2xl p-8 min-w-[500px] shadow-2xl max-w-2xl mx-4">
-            <h2 class="text-2xl font-bold text-gray-900 mb-4">Enter Your Diagnosis</h2>
-            <input type="text" id="diagnosisInput" placeholder="e.g., NSTEMI, Appendicitis, etc..." class="w-full px-5 py-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+            <h2 class="text-2xl font-bold text-gray-900 mb-4">Enter Your Diagnosis & Intervention</h2>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Diagnosis:</label>
+                    <input type="text" id="diagnosisInput" placeholder="e.g., NSTEMI, Appendicitis, etc..." class="w-full px-5 py-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+                <div>
+                    <label class="block text-sm font-semibold text-gray-700 mb-2">Intervention/Management Plan:</label>
+                    <input type="text" id="interventionInput" placeholder="e.g., Aspirin 325mg, Order troponin, Cardiology referral, etc..." class="w-full px-5 py-4 text-lg border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
+                </div>
+            </div>
             <div class="flex gap-3 mt-6">
                 <button id="cancelDiagnosisButton" class="flex-1 px-5 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold rounded-xl transition-colors">
                     Cancel

@@ -17,35 +17,35 @@ export function generateWhatWentWell(
   
   // Diagnosis
   if (context.diagnosisScore >= 20) {
-    items.push(`Correctly identified ${caseData.diagnosis.primary}`);
+    items.push(`Correctly identified the primary diagnosis: ${caseData.diagnosis.primary}`);
   } else if (context.diagnosisScore >= 10) {
-    items.push(`Considered appropriate differential diagnoses`);
+    items.push(`Considered appropriate differential diagnoses in your clinical assessment`);
   }
   
   // Critical actions
   if (context.performedCriticalActions.length > 0) {
     if (context.performedCriticalActions.length === caseData.diagnosis.criticalActions.length) {
-      items.push(`Performed all critical actions`);
+      items.push(`Completed all critical interventions and diagnostic workup`);
     } else {
       const firstAction = context.performedCriticalActions[0];
-      items.push(`Performed critical actions such as: ${firstAction}`);
+      items.push(`Performed critical interventions such as: ${firstAction}`);
       if (context.performedCriticalActions.length > 1) {
-        items.push(`Completed ${context.performedCriticalActions.length} out of ${caseData.diagnosis.criticalActions.length} critical actions`);
+        items.push(`Completed ${context.performedCriticalActions.length} out of ${caseData.diagnosis.criticalActions.length} critical interventions in the management plan`);
       }
     }
   }
   
   // Communication
   if (context.communicationScore >= 15) {
-    items.push(`Demonstrated good communication and history-taking skills`);
+    items.push(`Demonstrated excellent history-taking and clinical communication skills`);
   } else if (context.communicationScore >= 10) {
-    items.push(`Asked appropriate questions about the patient's condition`);
+    items.push(`Asked clinically relevant questions during the patient interview`);
   }
   
   // Efficiency
   const timeUsedPercent = (context.duration / context.timeLimit) * 100;
   if (timeUsedPercent <= 75) {
-    items.push(`Worked efficiently within the time limit`);
+    items.push(`Managed the case efficiently within the clinical time constraints`);
   }
   
   // If nothing particularly good, add a generic encouragement
@@ -67,17 +67,17 @@ export function generateMissed(
   
   // Missed critical actions
   for (const missedAction of context.missedCriticalActions) {
-    items.push(`Did not perform: ${missedAction}`);
+    items.push(`Missed critical intervention: ${missedAction}`);
   }
   
   // Communication gaps
   if (context.communicationScore < 10) {
-    items.push(`Could improve history-taking (ask about pain characteristics, past medical history, medications)`);
+    items.push(`Incomplete history-taking - consider asking about pain characteristics (location, radiation, quality), past medical history (PMH), medications, and associated symptoms`);
   }
   
   // Diagnosis
   if (context.diagnosisScore === 0) {
-    items.push(`Did not reach the correct diagnosis: ${caseData.diagnosis.primary}`);
+    items.push(`Did not identify the correct primary diagnosis: ${caseData.diagnosis.primary}`);
   }
   
   return items;
@@ -119,7 +119,7 @@ export function generateRecommendations(
   if (context.missedCriticalActions.length > 0) {
     const firstMissed = context.missedCriticalActions[0];
     recommendations.push(
-      `In ${caseData.patient.chiefComplaint.toLowerCase()} cases, always remember to: ${firstMissed.toLowerCase()}`
+      `For patients presenting with ${caseData.patient.chiefComplaint.toLowerCase()}, ensure you include: ${firstMissed} as part of your initial management plan`
     );
   }
   
@@ -127,7 +127,7 @@ export function generateRecommendations(
   for (const redFlag of context.missedRedFlags) {
     if (redFlag.consequence) {
       recommendations.push(
-        `${redFlag.action} should be performed promptly - ${redFlag.consequence.toLowerCase()}`
+        `${redFlag.action} is a time-sensitive intervention - ${redFlag.consequence.toLowerCase()} if delayed`
       );
     }
   }
@@ -135,14 +135,14 @@ export function generateRecommendations(
   // Communication
   if (context.communicationScore < 10) {
     recommendations.push(
-      `Improve your history-taking: ask about pain location, radiation, quality, associated symptoms, past medical history, and medications`
+      `Enhance your history-taking by systematically evaluating: pain characteristics (location, radiation, quality, severity), associated symptoms, past medical history (PMH), current medications, and allergies. This comprehensive approach improves diagnostic accuracy.`
     );
   }
   
   // Diagnosis
   if (context.diagnosisScore < 15) {
     recommendations.push(
-      `Review the case findings carefully. The primary diagnosis was ${caseData.diagnosis.primary}. Consider the patient's presentation, exam findings, and diagnostic results together.`
+      `Review the clinical presentation carefully. The primary diagnosis was ${caseData.diagnosis.primary}. Integrate the patient's history, physical examination findings, and diagnostic workup to reach the correct diagnosis.`
     );
   }
   
@@ -151,14 +151,14 @@ export function generateRecommendations(
       context.missedCriticalActions.length === 0 && 
       context.missedRedFlags.length === 0) {
     recommendations.push(
-      `Excellent work! Continue to practice maintaining efficiency while ensuring thoroughness.`
+      `Excellent clinical performance! Continue to practice maintaining efficiency while ensuring comprehensive patient assessment and appropriate interventions.`
     );
   }
   
   // Ensure at least one recommendation
   if (recommendations.length === 0) {
     recommendations.push(
-      `Good performance overall. Continue practicing to refine your clinical reasoning and efficiency.`
+      `Good clinical performance overall. Continue practicing to refine your diagnostic reasoning, history-taking skills, and intervention planning.`
     );
   }
   

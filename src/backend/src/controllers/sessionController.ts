@@ -7,6 +7,7 @@ import { Request, Response } from 'express';
 import { loadCase } from '../services/caseLoader';
 import { createSession, getSession, appendMessage, recordAction, markEnded, storeFeedback } from '../store/sessionStore';
 import { generatePatientReply } from '../services/patientEngine';
+import { generateGuidance } from '../services/guidanceEngine';
 import { CreateSessionParams } from '../models/session.types';
 import { analyzeSession } from '../feedback';
 import { generateSpeech } from '../services/ttsService';
@@ -107,19 +108,23 @@ export async function startSession(req: Request, res: Response): Promise<void> {
  * Request body:
  * {
  *   sessionId: string,
- *   message: string
+ *   message: string,
+ *   mode?: 'test' | 'learning' (optional, defaults to 'test')
+ *   guidanceLevel?: 'low' | 'medium' | 'high' (optional, for learning mode)
  * }
  * 
  * Response:
  * {
  *   patientReply: string,
  *   currentTurn: number,
- *   maxTurns?: number
+ *   maxTurns?: number,
+ *   isActive: boolean,
+ *   guidance?: { type: string, message: string } (only if mode is 'learning')
  * }
  */
 export async function sendMessage(req: Request, res: Response): Promise<void> {
   try {
-    const { sessionId, message } = req.body;
+    const { sessionId, message, mode, guidanceLevel } = req.body;
     
     // Validate inputs
     if (!sessionId || typeof sessionId !== 'string') {
@@ -183,13 +188,42 @@ export async function sendMessage(req: Request, res: Response): Promise<void> {
     
     // Get updated session to check current turn
     const updatedSession = getSession(sessionId);
+    if (!updatedSession) {
+      res.status(404).json({ error: 'Session not found' });
+      return;
+    }
     
-    res.json({
+    // Generate guidance for learning mode
+    let guidance = null;
+    if (mode === 'learning') {
+      try {
+        guidance = await generateGuidance({
+          session: updatedSession,
+          caseData: updatedSession.case,
+          lastUserMessage: sanitizedMessage,
+          lastPatientReply: patientReply,
+          guidanceLevel: guidanceLevel || 'medium' // Default to medium if not specified
+        });
+      } catch (error: any) {
+        console.error('Error generating guidance:', error?.message || error);
+        // Don't fail the request if guidance generation fails
+        guidance = null;
+      }
+    }
+    
+    const response: any = {
       patientReply,
-      currentTurn: updatedSession?.currentTurn || 0,
-      maxTurns: updatedSession?.maxTurns,
-      isActive: updatedSession?.isActive ?? false
-    });
+      currentTurn: updatedSession.currentTurn || 0,
+      maxTurns: updatedSession.maxTurns,
+      isActive: updatedSession.isActive ?? false
+    };
+    
+    // Add guidance if available
+    if (guidance) {
+      response.guidance = guidance;
+    }
+    
+    res.json(response);
     
   } catch (error: any) {
     console.error('Error sending message:', error);
@@ -435,7 +469,7 @@ export function exportSession(req: Request, res: Response): void {
  *   recommendations: string[]
  * }
  */
-export function getFeedback(req: Request, res: Response): void {
+export async function getFeedback(req: Request, res: Response): Promise<void> {
   try {
     const { sessionId } = req.query;
     
@@ -473,8 +507,8 @@ export function getFeedback(req: Request, res: Response): void {
       return;
     }
     
-    // Call F1's analyzeSession function
-    const feedbackResult = analyzeSession(session, caseData);
+    // Call F1's analyzeSession function (now async due to LLM-based diagnosis scoring)
+    const feedbackResult = await analyzeSession(session, caseData);
     
     // Store feedback result in session (cache it)
     storeFeedback(sessionId as string, feedbackResult);

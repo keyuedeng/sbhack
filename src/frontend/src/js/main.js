@@ -29,7 +29,11 @@ import { initFinishPage, showFinishPage, hideFinishPage, setFinishPageState } fr
 // App State
 let currentSessionId = null;
 let currentMode = null; // 'test' or 'learning'
+let guidanceLevel = null; // 'low', 'medium', or 'high' (only for learning mode)
 let timer = null;
+let messageCount = 0; // Track number of messages for guidance
+let lastUserMessage = ''; // Track last user message for guidance
+let lastPatientReply = ''; // Track last patient reply for guidance
 
 // DOM Elements (shared)
 const timerElement = document.getElementById('timer');
@@ -37,6 +41,7 @@ const timerElement = document.getElementById('timer');
 // DOM Elements - Diagnosis Modal
 const diagnosisModal = document.getElementById('diagnosisModal');
 const diagnosisInput = document.getElementById('diagnosisInput');
+const interventionInput = document.getElementById('interventionInput');
 const cancelDiagnosisButton = document.getElementById('cancelDiagnosisButton');
 const submitDiagnosisButton = document.getElementById('submitDiagnosisButton');
 
@@ -129,10 +134,11 @@ function initRouter() {
 }
 
 /**
- * Initialize interface (both modes use same interface for now)
+ * Initialize interface
  */
-async function initializeInterface(mode) {
+async function initializeInterface(mode, level = null) {
   currentMode = mode;
+  guidanceLevel = level; // Store guidance level (only used for learning mode)
   
   try {
     // Start session with backend
@@ -158,6 +164,11 @@ async function initializeInterface(mode) {
     clearMessages(messagesContainer);
     clearFeedback();
     
+    // Reset message tracking
+    messageCount = 0;
+    lastUserMessage = '';
+    lastPatientReply = '';
+    
     const notesTextarea = document.getElementById('patientNotesTextarea');
     if (notesTextarea) notesTextarea.value = '';
 
@@ -167,6 +178,13 @@ async function initializeInterface(mode) {
     // Show/hide feedback sidebar based on mode
     if (mode === 'learning') {
       showFeedbackSidebar();
+      // Show initial guidance in learning mode
+      setTimeout(() => {
+        displayGuidance({
+          type: 'hint',
+          message: 'Welcome to Learning Mode! Start by introducing yourself and asking about the patient\'s chief complaint. Use open-ended questions to gather information.'
+        });
+      }, 800);
     } else {
       hideFeedbackSidebar();
     }
@@ -224,6 +242,7 @@ async function sendMessage() {
     console.log('✅ Adding user message to UI');
     addMessage(messagesContainer, text, true);
     messageInput.value = '';
+    messageCount += 1; // Increment for user message
 
     console.log('📡 Sending message to backend...');
     // Send to backend
@@ -261,6 +280,7 @@ async function sendMessage() {
 function showDiagnosisModal() {
   diagnosisModal.classList.remove('hidden');
   diagnosisInput.value = '';
+  interventionInput.value = '';
   setTimeout(() => diagnosisInput.focus(), 100);
 }
 
@@ -276,29 +296,45 @@ function hideDiagnosisModal() {
  */
 async function submitDiagnosis() {
   const diagnosis = diagnosisInput.value.trim();
+  const intervention = interventionInput.value.trim();
   if (!diagnosis || !currentSessionId) return;
 
   hideDiagnosisModal();
 
   try {
+    // Combine diagnosis and intervention for submission
+    const diagnosisWithIntervention = intervention 
+      ? `${diagnosis} | Intervention: ${intervention}`
+      : diagnosis;
+    
     // End session with diagnosis
-    await apiService.endSession(currentSessionId, diagnosis);
+    await apiService.endSession(currentSessionId, diagnosisWithIntervention);
 
-    // Get feedback (for learning mode)
-    if (currentMode === 'learning') {
-      try {
-        const feedback = await apiService.getFeedback(currentSessionId);
-        displayFeedback(feedback);
-      } catch (error) {
-        console.error('Error getting feedback:', error);
+    // Get feedback to determine correctness
+    let isCorrect = false;
+    try {
+      const feedback = await apiService.getFeedback(currentSessionId);
+      
+      // Check if diagnosis is correct (diagnosis score >= 20 means correct primary diagnosis)
+      isCorrect = feedback.breakdown.diagnosis >= 20;
+      
+      // Display feedback (in overlay for test mode, sidebar for learning mode)
+      displayFeedback(feedback, currentMode, isCorrect);
+      
+      // Fade out chat background when showing feedback in test mode
+      if (currentMode === 'test') {
+        const mainContentArea = document.querySelector('#simulationPage > .flex-1');
+        if (mainContentArea) mainContentArea.classList.add('chat-faded');
       }
+    } catch (error) {
+      console.error('Error getting feedback:', error);
+      // If feedback fails, default to incorrect
+      isCorrect = false;
     }
 
-    // Show finish page
+    // Stop timer and hide diagnose button
     timer.stop();
     hideDiagnoseButton();
-    setFinishPageState(true); // TODO: Check actual correctness from feedback
-    showPage(finishPageEl);
 
   } catch (error) {
     console.error('Error submitting diagnosis:', error);
@@ -317,11 +353,17 @@ function goHome() {
   timer.stop();
   currentSessionId = null;
   currentMode = null;
+  guidanceLevel = null;
 
   // Clear state
   const messagesContainer = getMessagesContainer();
   clearMessages(messagesContainer);
   clearFeedback();
+  
+  // Reset message tracking
+  messageCount = 0;
+  lastUserMessage = '';
+  lastPatientReply = '';
 
   // Navigate to home
   window.location.href = '/home';
@@ -417,7 +459,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Initialize pages
   initHomePage();
   initTitlePage(
-    () => initializeInterface('learning'),
+    (guidanceLevel) => initializeInterface('learning', guidanceLevel),
     () => initializeInterface('test')
   );
   initSimulationPage(goHome, sendMessage, showDiagnosisModal, handleMicrophoneClick);
@@ -433,6 +475,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Event listeners - Diagnosis Modal
   diagnosisInput.addEventListener('keypress', (e) => {
+    if (e.key === 'Enter') interventionInput.focus();
+  });
+  interventionInput.addEventListener('keypress', (e) => {
     if (e.key === 'Enter') submitDiagnosis();
   });
   cancelDiagnosisButton.addEventListener('click', hideDiagnosisModal);
@@ -441,4 +486,27 @@ document.addEventListener('DOMContentLoaded', () => {
   diagnosisModal.addEventListener('click', (e) => {
     if (e.target === diagnosisModal) hideDiagnosisModal();
   });
+
+  // Event listener - Feedback Overlay Close Button
+  const closeFeedbackButton = document.getElementById('closeFeedbackButton');
+  if (closeFeedbackButton) {
+    closeFeedbackButton.addEventListener('click', () => {
+      hideFeedbackOverlay();
+      goHome();
+    });
+  }
+  
+  // Set up retake callback
+  setRetakeCallback(() => {
+    hideFeedbackOverlay();
+    // Restart the session with the same mode and level
+    if (currentMode && guidanceLevel !== undefined) {
+      initializeInterface(currentMode, guidanceLevel);
+    } else if (currentMode) {
+      initializeInterface(currentMode);
+    }
+  });
+  
+  // Initialize retake button
+  initRetakeButton();
 });
