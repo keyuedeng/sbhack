@@ -1,12 +1,13 @@
 /**
  * Scoring Rules
- * Pure functions for calculating scores based on session data
- * No side effects, no API calls - deterministic scoring logic
+ * Functions for calculating scores based on session data
+ * Uses LLM for diagnosis comparison, with fallback to string matching
  */
 
 import { Session } from '../models/session.types';
 import { MedicalCase, RedFlag } from '../../../shared/types/case.types';
 import { ScoringContext } from './types';
+import OpenAI from 'openai';
 
 // Time limits per level (in seconds)
 export const TIME_LIMITS = {
@@ -37,28 +38,141 @@ export function getSessionDuration(session: Session): number {
 }
 
 /**
- * Score diagnosis correctness (0-25 points)
+ * Score diagnosis correctness (0-25 points) using LLM comparison
+ * Uses the submitted diagnosis from the session, not conversation messages
  */
-export function scoreDiagnosis(session: Session, caseData: MedicalCase): number {
-  const userMessages = session.messages.filter(m => m.role === 'user');
-  const allText = userMessages.map(m => m.content.toLowerCase()).join(' ');
+export async function scoreDiagnosis(session: Session, caseData: MedicalCase): Promise<number> {
+  // Use submittedDiagnosis if available (from diagnosis submission), otherwise check messages
+  const diagnosisText = session.submittedDiagnosis 
+    ? session.submittedDiagnosis.toLowerCase()
+    : session.messages.filter(m => m.role === 'user').map(m => m.content.toLowerCase()).join(' ');
   
-  const primaryDiagnosis = caseData.diagnosis.primary.toLowerCase();
-  const differentials = caseData.diagnosis.differentials.map(d => d.toLowerCase());
+  // Extract just the diagnosis part (before "| Intervention:")
+  const diagnosisOnly = diagnosisText.split('| intervention:')[0].trim();
+  
+  if (!diagnosisOnly) {
+    return 0;
+  }
+  
+  const primaryDiagnosis = caseData.diagnosis.primary;
+  const differentials = caseData.diagnosis.differentials;
+  
+  // Try LLM-based comparison first
+  try {
+    const llmScore = await compareDiagnosisWithLLM(diagnosisOnly, primaryDiagnosis, differentials);
+    if (llmScore !== null) {
+      return llmScore;
+    }
+  } catch (error: any) {
+    console.error('Error in LLM diagnosis comparison, falling back to string matching:', error?.message || error);
+  }
+  
+  // Fallback to string matching if LLM fails
+  const diagnosisOnlyLower = diagnosisOnly.toLowerCase();
+  const primaryDiagnosisLower = primaryDiagnosis.toLowerCase();
+  const differentialsLower = differentials.map(d => d.toLowerCase());
   
   // Check for exact or close match of primary diagnosis
-  if (containsDiagnosis(allText, primaryDiagnosis)) {
+  if (containsDiagnosis(diagnosisOnlyLower, primaryDiagnosisLower)) {
     return MAX_DIAGNOSIS_SCORE;
   }
   
   // Check for differential diagnoses (partial credit)
-  for (const diff of differentials) {
-    if (containsDiagnosis(allText, diff)) {
+  for (const diff of differentialsLower) {
+    if (containsDiagnosis(diagnosisOnlyLower, diff)) {
       return Math.floor(MAX_DIAGNOSIS_SCORE * 0.6); // 60% credit for differential
     }
   }
   
   return 0;
+}
+
+/**
+ * Compare submitted diagnosis with correct answer using LLM
+ * Returns: 25 for correct, 15 for differential, 0 for incorrect, null if error
+ */
+async function compareDiagnosisWithLLM(
+  submittedDiagnosis: string,
+  primaryDiagnosis: string,
+  differentials: string[]
+): Promise<number | null> {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  
+  const systemPrompt = `You are a medical education assistant evaluating a student's diagnosis submission.
+
+Your task is to compare the student's submitted diagnosis with the correct answer and determine if they match.
+
+Scoring rules:
+- If the student's diagnosis matches the PRIMARY diagnosis (exact match, synonym, or equivalent medical term), return: "PRIMARY"
+- If the student's diagnosis matches one of the DIFFERENTIAL diagnoses (exact match, synonym, or equivalent medical term), return: "DIFFERENTIAL"
+- If the student's diagnosis is completely wrong or unrelated, return: "INCORRECT"
+
+Important:
+- Be flexible with medical terminology - "NSTEMI" = "Non-ST Elevation Myocardial Infarction" = "non-ST elevation MI"
+- Consider synonyms and abbreviations
+- "Acute coronary syndrome" is broader than "NSTEMI" but could be a differential
+- Be STRICT - only return PRIMARY if it's truly the same diagnosis, not just related
+- If the student's diagnosis is wrong (even if related to the correct diagnosis), return "INCORRECT"
+- Only return PRIMARY for exact matches or medically equivalent terms
+- Only return DIFFERENTIAL if it matches one of the listed differential diagnoses
+- If it doesn't match primary or any differential, return "INCORRECT"
+
+Examples:
+- Primary is "NSTEMI", student says "NSTEMI" or "Non-ST Elevation MI" → PRIMARY
+- Primary is "NSTEMI", student says "Acute coronary syndrome" → DIFFERENTIAL (if in differentials list)
+- Primary is "NSTEMI", student says "STEMI" or "GERD" or "Appendicitis" → INCORRECT
+
+Respond with ONLY one word: "PRIMARY", "DIFFERENTIAL", or "INCORRECT"`;
+
+  const userPrompt = `Correct PRIMARY diagnosis: ${primaryDiagnosis}
+
+Correct DIFFERENTIAL diagnoses: ${differentials.join(', ')}
+
+Student's submitted diagnosis: "${submittedDiagnosis}"
+
+Does the student's diagnosis match the primary diagnosis, a differential diagnosis, or is it incorrect?`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.1, // Low temperature for consistent evaluation
+      max_tokens: 10
+    });
+
+    const rawResult = response.choices[0]?.message?.content?.trim().toUpperCase();
+    
+    // Extract the result word (handle cases where LLM returns more than one word)
+    let result: string;
+    if (rawResult?.includes('PRIMARY')) {
+      result = 'PRIMARY';
+    } else if (rawResult?.includes('DIFFERENTIAL')) {
+      result = 'DIFFERENTIAL';
+    } else if (rawResult?.includes('INCORRECT')) {
+      result = 'INCORRECT';
+    } else {
+      // If we can't parse the result, default to incorrect for safety
+      console.warn(`[Diagnosis Comparison] Could not parse LLM result: "${rawResult}", defaulting to INCORRECT`);
+      result = 'INCORRECT';
+    }
+    
+    // Log for debugging
+    console.log(`[Diagnosis Comparison] Submitted: "${submittedDiagnosis}", Primary: "${primaryDiagnosis}", LLM Result: "${result}" (raw: "${rawResult}")`);
+    
+    if (result === 'PRIMARY') {
+      return MAX_DIAGNOSIS_SCORE; // 25 points
+    } else if (result === 'DIFFERENTIAL') {
+      return Math.floor(MAX_DIAGNOSIS_SCORE * 0.6); // 15 points (60% credit)
+    } else {
+      return 0; // Incorrect
+    }
+  } catch (error: any) {
+    console.error('OpenAI API error in diagnosis comparison:', error?.message || error);
+    return null; // Return null to trigger fallback
+  }
 }
 
 /**
@@ -326,13 +440,13 @@ function scoreActionOrdering(session: Session): number {
 }
 
 /**
- * Calculate full scoring context
+ * Calculate full scoring context (now async due to LLM-based diagnosis scoring)
  */
-export function calculateScoringContext(
+export async function calculateScoringContext(
   session: Session,
   caseData: MedicalCase
-): ScoringContext {
-  const diagnosisScore = scoreDiagnosis(session, caseData);
+): Promise<ScoringContext> {
+  const diagnosisScore = await scoreDiagnosis(session, caseData);
   const criticalActionsResult = scoreCriticalActions(session, caseData);
   const communicationScore = scoreCommunication(session, caseData);
   const efficiencyScore = scoreEfficiency(session);
@@ -353,3 +467,4 @@ export function calculateScoringContext(
     duration
   };
 }
+

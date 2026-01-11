@@ -2,7 +2,7 @@
  * Analyze Session
  * Main entry point for session feedback and scoring
  * 
- * This is a pure function module - no side effects, no API calls
+ * Uses LLM for diagnosis comparison, with fallback to string matching
  * Takes a session and case data, returns structured feedback
  */
 
@@ -28,12 +28,12 @@ import {
  * @param caseData - The medical case data with diagnosis, critical actions, etc.
  * @returns Structured feedback with scores and recommendations
  */
-export function analyzeSession(
+export async function analyzeSession(
   session: Session,
   caseData: MedicalCase
-): FeedbackResult {
-  // Calculate all scores
-  const context = calculateScoringContext(session, caseData);
+): Promise<FeedbackResult> {
+  // Calculate all scores (diagnosis scoring is now async)
+  const context = await calculateScoringContext(session, caseData);
   
   // Calculate summary score (sum of all breakdown scores)
   const summaryScore = Math.min(100, Math.round(

@@ -163,7 +163,7 @@ async function runTests() {
       console.log('-'.repeat(70));
       
       const session = createMockSession(caseData, scenario.level, scenario.type);
-      const feedback = analyzeSession(session, caseData);
+      const feedback = await analyzeSession(session, caseData);
       
       // Display results
       console.log(`\n📊 SCORING BREAKDOWN:`);

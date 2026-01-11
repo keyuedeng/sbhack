@@ -252,6 +252,8 @@ export function markEnded(sessionId: string, diagnosis?: string): void {
   // Store submitted diagnosis if provided
   if (diagnosis) {
     session.submittedDiagnosis = diagnosis.trim();
+    // Clear cached feedback when a new diagnosis is submitted (feedback needs to be regenerated)
+    session.feedbackResult = undefined;
   }
   
   console.log(`Session ${sessionId} marked as ended${diagnosis ? ` with diagnosis: ${diagnosis}` : ''}`);
