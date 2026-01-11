@@ -22,12 +22,39 @@ export function addMessage(container, text, isUser) {
       </div>
     `;
   } else {
-    messageDiv.className = 'mb-4 flex justify-start animate-fade-in';
+    messageDiv.className = 'mb-4 flex items-start justify-start gap-2 animate-fade-in';
     messageDiv.innerHTML = `
       <div class="max-w-[75%] bg-white border-2 border-gray-200 text-gray-800 px-5 py-3 rounded-2xl rounded-bl-sm shadow-sm">
         <p class="text-base leading-relaxed">${escapeHtml(text)}</p>
       </div>
+      ${textToSpeech.isAvailable() ? `
+        <button class="audio-button w-8 h-8 flex items-center justify-center bg-gray-100 hover:bg-blue-100 text-gray-600 hover:text-blue-600 rounded-full transition-colors flex-shrink-0 mt-1" title="Play audio">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/>
+          </svg>
+        </button>
+      ` : ''}
     `;
+    
+    // Preload audio in the background for faster playback when button is clicked
+    if (textToSpeech.isAvailable()) {
+      // Preload audio asynchronously (don't wait)
+      textToSpeech.preloadAudio(text, {
+        voice: 'athena' // Natural female voice from Deepgram Aura (aura-2-athena-en)
+      }).catch(() => {
+        // Silently fail - will load on-demand if preload fails
+      });
+
+      // Add click event listener to audio button
+      const audioButton = messageDiv.querySelector('.audio-button');
+      if (audioButton) {
+        audioButton.addEventListener('click', () => {
+          textToSpeech.speak(text, {
+            voice: 'athena' // Natural female voice from Deepgram Aura (aura-2-athena-en)
+          });
+        });
+      }
+    }
   }
   
   container.appendChild(messageDiv);
@@ -36,16 +63,6 @@ export function addMessage(container, text, isUser) {
     top: container.scrollHeight,
     behavior: 'smooth'
   });
-  
-  // Speak patient messages aloud using Deepgram human-like voices (with browser fallback)
-  if (!isUser && textToSpeech.isAvailable()) {
-    // Small delay to ensure message is rendered first
-    setTimeout(() => {
-      textToSpeech.speak(text, {
-        voice: 'athena' // Natural female voice from Deepgram Aura (aura-2-athena-en)
-      });
-    }, 300);
-  }
 }
 
 /**
@@ -60,6 +77,7 @@ export function clearMessages(container) {
   // Stop any ongoing speech when clearing messages
   if (textToSpeech.isAvailable()) {
     textToSpeech.stop();
+    textToSpeech.clearCache(); // Clear audio cache to free memory
   }
 }
 

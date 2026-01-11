@@ -12,6 +12,7 @@ class TextToSpeech {
     this.browserSynthesis = null;
     this.browserUtterance = null;
     this.useDeepgram = true; // Try Deepgram first
+    this.audioCache = new Map(); // Cache for pre-loaded audio URLs (text -> {url})
     
     // Initialize browser Speech Synthesis as fallback
     if ('speechSynthesis' in window) {
@@ -38,8 +39,53 @@ class TextToSpeech {
       return false;
     }
 
+    const trimmedText = text.trim();
+    const cacheKey = `${trimmedText}|${options.voice || 'athena'}`;
+
     // Stop any currently playing audio
     this.stop();
+
+    // Check cache first - if audio is pre-loaded, use it immediately
+    if (this.audioCache.has(cacheKey)) {
+      const cached = this.audioCache.get(cacheKey);
+      try {
+        // Create new Audio element from cached URL for immediate playback
+        const audioUrl = cached.url;
+        const audio = new Audio(audioUrl);
+        
+        this.currentAudio = audio;
+        this.isSpeaking = true;
+
+        // Event handlers
+        audio.onended = () => {
+          this.isSpeaking = false;
+          this.currentAudio = null;
+          if (onEnd) {
+            onEnd();
+          }
+        };
+
+        audio.onerror = (event) => {
+          this.isSpeaking = false;
+          this.currentAudio = null;
+          console.error('Audio playback error:', event);
+          // Fallback to browser TTS on error
+          this.speakWithBrowser(trimmedText, options, onEnd, onError);
+        };
+
+        audio.onplay = () => {
+          this.isSpeaking = true;
+        };
+
+        // Play audio immediately
+        await audio.play();
+        return true;
+      } catch (error) {
+        console.warn('Error playing cached audio:', error);
+        // Fall through to fetch new audio
+        this.audioCache.delete(cacheKey);
+      }
+    }
 
     // Try Deepgram first if enabled
     if (this.useDeepgram) {
@@ -51,7 +97,7 @@ class TextToSpeech {
             'Content-Type': 'application/json',
           },
             body: JSON.stringify({
-              text: text.trim(),
+              text: trimmedText,
               voice: options.voice || 'athena', // Voice name (e.g., 'athena' becomes 'aura-2-athena-en')
             }),
         });
@@ -65,6 +111,9 @@ class TextToSpeech {
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
             
+            // Cache the audio URL for future use
+            this.audioCache.set(cacheKey, { url: audioUrl });
+            
             this.currentAudio = audio;
             this.isSpeaking = true;
 
@@ -72,7 +121,6 @@ class TextToSpeech {
             audio.onended = () => {
               this.isSpeaking = false;
               this.currentAudio = null;
-              URL.revokeObjectURL(audioUrl);
               if (onEnd) {
                 onEnd();
               }
@@ -81,10 +129,11 @@ class TextToSpeech {
             audio.onerror = (event) => {
               this.isSpeaking = false;
               this.currentAudio = null;
+              this.audioCache.delete(cacheKey);
               URL.revokeObjectURL(audioUrl);
               console.error('Audio playback error:', event);
               // Fallback to browser TTS on error
-              this.speakWithBrowser(text, options, onEnd, onError);
+              this.speakWithBrowser(trimmedText, options, onEnd, onError);
             };
 
             audio.onplay = () => {
@@ -99,17 +148,71 @@ class TextToSpeech {
           // API key not configured - fallback to browser
           console.warn('Deepgram TTS not configured, using browser Speech Synthesis');
           this.useDeepgram = false; // Disable Deepgram for this session
-          return this.speakWithBrowser(text, options, onEnd, onError);
+          return this.speakWithBrowser(trimmedText, options, onEnd, onError);
         }
       } catch (error) {
         console.warn('Deepgram TTS error, falling back to browser:', error);
         // Fallback to browser TTS on error
-        return this.speakWithBrowser(text, options, onEnd, onError);
+        return this.speakWithBrowser(trimmedText, options, onEnd, onError);
       }
     }
 
     // Use browser Speech Synthesis as fallback
-    return this.speakWithBrowser(text, options, onEnd, onError);
+    return this.speakWithBrowser(trimmedText, options, onEnd, onError);
+  }
+
+  /**
+   * Preload audio for text (fetch and cache without playing)
+   * @param {string} text - Text to preload
+   * @param {Object} options - Optional settings (voice, etc.)
+   */
+  async preloadAudio(text, options = {}) {
+    if (!text || text.trim() === '') {
+      return false;
+    }
+
+    const trimmedText = text.trim();
+    const cacheKey = `${trimmedText}|${options.voice || 'athena'}`;
+
+    // Skip if already cached or loading
+    if (this.audioCache.has(cacheKey)) {
+      return true;
+    }
+
+    // Only preload if using Deepgram
+    if (this.useDeepgram) {
+      try {
+        const response = await fetch(`${API_BASE_URL}/tts/speak`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            text: trimmedText,
+            voice: options.voice || 'athena',
+          }),
+        });
+
+        if (response.ok) {
+          const audioBlob = await response.blob();
+          
+          if (audioBlob && audioBlob.size > 0) {
+            const audioUrl = URL.createObjectURL(audioBlob);
+            
+            // Cache the URL for later use
+            this.audioCache.set(cacheKey, { url: audioUrl });
+            
+            return true;
+          }
+        }
+      } catch (error) {
+        // Silently fail preloading - will fall back to on-demand loading
+        console.debug('Preload audio failed (will load on-demand):', error);
+        return false;
+      }
+    }
+
+    return false;
   }
 
   /**
@@ -203,6 +306,19 @@ class TextToSpeech {
       this.browserUtterance = null;
       this.isSpeaking = false;
     }
+  }
+
+  /**
+   * Clear audio cache (call this when clearing messages)
+   */
+  clearCache() {
+    // Revoke object URLs to free memory
+    for (const [key, cached] of this.audioCache.entries()) {
+      if (cached.url) {
+        URL.revokeObjectURL(cached.url);
+      }
+    }
+    this.audioCache.clear();
   }
 
   /**
