@@ -5,6 +5,7 @@
 
 import { MedicalCase, RevealedFacts } from '../../../shared/types/case.types';
 import { Message } from '../services/patientEngine';
+import { FeedbackResult } from '../feedback/types';
 
 export interface Session {
   sessionId: string;
@@ -40,20 +41,6 @@ export interface Session {
   // Completion and feedback (F2)
   submittedDiagnosis?: string; // Diagnosis submitted by student when ending session
   feedbackResult?: FeedbackResult; // Cached feedback result
-}
-
-export interface FeedbackResult {
-  summaryScore: number;
-  breakdown: {
-    diagnosis: number;
-    criticalActions: number;
-    communication: number;
-    efficiency: number;
-  };
-  whatWentWell: string[];
-  missed: string[];
-  redFlagsMissed: string[];
-  recommendations: string[];
 }
 
 export interface SessionAction {

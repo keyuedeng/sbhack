@@ -4,7 +4,8 @@
  * For hackathon MVP - no database needed
  */
 
-import { Session, CreateSessionParams, SessionAction, FeedbackResult } from '../models/session.types';
+import { Session, CreateSessionParams, SessionAction } from '../models/session.types';
+import { FeedbackResult } from '../feedback/types';
 import { MedicalCase } from '../../../shared/types/case.types';
 import { randomUUID } from 'crypto';
 

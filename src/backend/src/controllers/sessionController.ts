@@ -8,6 +8,7 @@ import { loadCase } from '../services/caseLoader';
 import { createSession, getSession, appendMessage, recordAction, markEnded, storeFeedback } from '../store/sessionStore';
 import { generatePatientReply } from '../services/patientEngine';
 import { CreateSessionParams } from '../models/session.types';
+import { analyzeSession } from '../feedback';
 
 /**
  * POST /session/start
@@ -467,24 +468,8 @@ export function getFeedback(req: Request, res: Response): void {
       return;
     }
     
-    // TODO: F1 - Import and call analyzeSession from feedback module
-    // import { analyzeSession } from '../feedback/analyzeSession';
-    // const feedbackResult = analyzeSession({ session, caseData });
-    
-    // TEMPORARY: Return stub feedback until F1 implements analyzeSession
-    const feedbackResult = {
-      summaryScore: 0,
-      breakdown: {
-        diagnosis: 0,
-        criticalActions: 0,
-        communication: 0,
-        efficiency: 0
-      },
-      whatWentWell: [],
-      missed: [],
-      redFlagsMissed: [],
-      recommendations: []
-    };
+    // Call F1's analyzeSession function
+    const feedbackResult = analyzeSession(session, caseData);
     
     // Store feedback result in session (cache it)
     storeFeedback(sessionId as string, feedbackResult);
