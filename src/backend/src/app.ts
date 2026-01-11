@@ -4,6 +4,7 @@
  */
 
 import express, { Express } from 'express';
+import path from 'path';
 import sessionRoutes from './routes/sessionRoutes';
 import { rateLimiter } from './middleware/rateLimiter';
 import { sanitizeBody, validateRequestSize } from './middleware/sanitizer';
@@ -49,6 +50,23 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/session', sessionRoutes);
+
+// Serve frontend static files (relative to project root)
+const frontendPublicPath = path.join(process.cwd(), 'src', 'frontend', 'public');
+const frontendSrcPath = path.join(process.cwd(), 'src', 'frontend', 'src');
+
+app.use(express.static(frontendPublicPath));
+app.use('/src', express.static(frontendSrcPath));
+
+// Serve index.html for all other routes (SPA fallback) - must be before 404 handler
+app.get('*', (req, res, next) => {
+  // Only serve HTML for non-API routes
+  if (!req.path.startsWith('/session') && !req.path.startsWith('/health') && !req.path.startsWith('/src')) {
+    res.sendFile(path.join(frontendPublicPath, 'index.html'));
+  } else {
+    next();
+  }
+});
 
 // 404 handler (must be after all routes)
 app.use(notFoundHandler);
