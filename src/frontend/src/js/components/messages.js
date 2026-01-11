@@ -3,6 +3,8 @@
  * Handles message display in chat interfaces
  */
 
+import { textToSpeech } from '../utils/textToSpeech.js';
+
 /**
  * Add a message to the chat container
  * @param {HTMLElement} container - Message container element
@@ -34,6 +36,16 @@ export function addMessage(container, text, isUser) {
     top: container.scrollHeight,
     behavior: 'smooth'
   });
+  
+  // Speak patient messages aloud using Deepgram human-like voices (with browser fallback)
+  if (!isUser && textToSpeech.isAvailable()) {
+    // Small delay to ensure message is rendered first
+    setTimeout(() => {
+      textToSpeech.speak(text, {
+        voice: 'athena' // Natural female voice from Deepgram Aura (aura-2-athena-en)
+      });
+    }, 300);
+  }
 }
 
 /**
@@ -43,6 +55,11 @@ export function addMessage(container, text, isUser) {
 export function clearMessages(container) {
   if (container) {
     container.innerHTML = '';
+  }
+  
+  // Stop any ongoing speech when clearing messages
+  if (textToSpeech.isAvailable()) {
+    textToSpeech.stop();
   }
 }
 

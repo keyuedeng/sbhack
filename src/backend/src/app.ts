@@ -6,6 +6,7 @@
 import express, { Express } from 'express';
 import path from 'path';
 import sessionRoutes from './routes/sessionRoutes';
+import ttsRoutes from './routes/ttsRoutes';
 import { rateLimiter } from './middleware/rateLimiter';
 import { sanitizeBody, validateRequestSize } from './middleware/sanitizer';
 import { errorHandler, notFoundHandler } from './middleware/errorHandler';
@@ -50,6 +51,7 @@ app.get('/health', (req, res) => {
 
 // API routes
 app.use('/session', sessionRoutes);
+app.use('/tts', ttsRoutes);
 
 // Serve frontend static files (relative to project root)
 const frontendPublicPath = path.join(process.cwd(), 'src', 'frontend', 'public');

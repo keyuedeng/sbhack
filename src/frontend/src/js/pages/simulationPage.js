@@ -7,6 +7,7 @@ const homeButton = document.getElementById('homeButton');
 const messagesContainer = document.getElementById('messagesContainer');
 const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
+const microphoneButton = document.getElementById('microphoneButton');
 const diagnoseButton = document.getElementById('diagnoseButton');
 const feedbackSidebar = document.getElementById('feedbackSidebar');
 

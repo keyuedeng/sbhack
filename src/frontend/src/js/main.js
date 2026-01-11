@@ -5,6 +5,7 @@
 
 import { apiService } from './services/api.js';
 import { Timer } from './utils/timer.js';
+import { voiceInput } from './utils/voiceInput.js';
 import { addMessage, clearMessages } from './components/messages.js';
 import { updatePatientInfo } from './components/patientInfo.js';
 import { displayFeedback, clearFeedback, displayGuidance, hideFeedbackOverlay, setRetakeCallback, initRetakeButton } from './components/feedback.js';
@@ -408,4 +409,84 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialize retake button
   initRetakeButton();
+
+  // Initialize voice input
+  initVoiceInput();
 });
+
+
+/**
+ * Initialize voice input functionality
+ */
+function initVoiceInput() {
+  const microphoneButton = document.getElementById('microphoneButton');
+  const messageInput = getMessageInput();
+
+  if (!microphoneButton || !messageInput) {
+    return;
+  }
+
+  // Check if voice input is available
+  if (!voiceInput.isAvailable()) {
+    // Disable microphone button if not available
+    microphoneButton.disabled = true;
+    microphoneButton.classList.add('opacity-50', 'cursor-not-allowed');
+    microphoneButton.title = 'Voice input not supported in this browser';
+    return;
+  }
+
+  let isRecording = false;
+
+  // Update button visual state
+  function updateButtonState(recording) {
+    if (recording) {
+      microphoneButton.classList.remove('bg-gray-100', 'hover:bg-gray-200', 'text-gray-700');
+      microphoneButton.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white');
+      microphoneButton.title = 'Click to stop recording';
+    } else {
+      microphoneButton.classList.remove('bg-red-500', 'hover:bg-red-600', 'text-white');
+      microphoneButton.classList.add('bg-gray-100', 'hover:bg-gray-200', 'text-gray-700');
+      microphoneButton.title = 'Click to record voice';
+    }
+    isRecording = recording;
+  }
+
+  // Handle microphone button click
+  microphoneButton.addEventListener('click', () => {
+    if (!voiceInput.isAvailable()) {
+      return;
+    }
+
+    if (isRecording) {
+      // Stop recording
+      voiceInput.stopListening();
+      updateButtonState(false);
+    } else {
+      // Start recording
+      const started = voiceInput.startListening(
+        (transcript) => {
+          // Success: Update message input with transcript
+          if (messageInput && transcript) {
+            messageInput.value = transcript.trim();
+            messageInput.focus();
+          }
+          updateButtonState(false);
+        },
+        (error) => {
+          // Error handling
+          console.error('Voice input error:', error);
+          updateButtonState(false);
+          console.warn('Voice input failed. Please try again.');
+        },
+        () => {
+          // On end
+          updateButtonState(false);
+        }
+      );
+
+      if (started) {
+        updateButtonState(true);
+      }
+    }
+  });
+}
