@@ -3,8 +3,6 @@
  * Page with mode selection buttons (Learning Mode / Test Mode)
  */
 
-import { typeWriter } from '../utils/typewriter.js';
-
 const titleText = document.getElementById('titleText');
 const modeButtonsContainer = document.getElementById('modeButtonsContainer');
 const learningModeButton = document.getElementById('learningModeButton');
@@ -17,12 +15,17 @@ const guidanceHighButton = document.getElementById('guidanceHighButton');
 let onLearningModeSelected = null;
 
 export function initTitlePage(onLearningClick, onTestClick) {
-  // Typewriter effect for title
-  if (window.location.pathname === '/home') {
-    typeWriter(titleText, 'Medical Simulation Platform', 100, () => {
-      modeButtonsContainer.classList.remove('hidden');
-    });
-  } else {
+  // Get title from URL params or use default
+  const urlParams = new URLSearchParams(window.location.search);
+  const caseTitle = urlParams.get('title') || 'Medical Simulation';
+  
+  // Set title text directly (no animation)
+  if (titleText) {
+    titleText.textContent = caseTitle;
+  }
+  
+  // Show mode buttons immediately
+  if (modeButtonsContainer) {
     modeButtonsContainer.classList.remove('hidden');
   }
 

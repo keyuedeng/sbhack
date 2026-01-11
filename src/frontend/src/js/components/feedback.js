@@ -3,6 +3,8 @@
  * Handles feedback display for learning mode
  */
 
+import { playCorrectSound, playWrongSound } from '../utils/sounds.js';
+
 // Store guidance history for learning mode
 let guidanceHistory = [];
 
@@ -226,6 +228,13 @@ function displayFeedbackInOverlay(feedback, isCorrect) {
 
   // Store feedback data for tab switching
   currentFeedbackData = { feedback, isCorrect };
+  
+  // Play sound effect based on correctness
+  if (isCorrect) {
+    playCorrectSound();
+  } else {
+    playWrongSound();
+  }
   
   // Set correct/incorrect status
   status.textContent = isCorrect ? '✅' : '❌';

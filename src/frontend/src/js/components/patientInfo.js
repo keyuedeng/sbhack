@@ -28,10 +28,15 @@ export function updatePatientInfo(patient) {
     symptoms.textContent = `${patient.chiefComplaint || 'No chief complaint'}`;
   }
   
-  // Note: Image would need to be handled separately or from case data
-  // For now, we'll leave it empty or use a placeholder
-  if (image && patient.image) {
-    image.src = patient.image;
-    image.alt = patient.name || 'Patient';
+  // Set patient image
+  if (image) {
+    if (patient.image) {
+      image.src = patient.image;
+      image.alt = patient.name || 'Patient';
+    } else {
+      // Set a default placeholder or leave empty
+      image.src = '';
+      image.alt = patient.name || 'Patient';
+    }
   }
 }

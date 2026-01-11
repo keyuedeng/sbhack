@@ -73,43 +73,133 @@
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen font-sans">
     
-    <!-- Home Page (Simple) -->
-    <div id="homePage" class="page active fixed inset-0 bg-gray-50 flex items-center justify-center z-[1000]">
-        <div class="text-6xl font-bold text-gray-800">home</div>
+    <!-- Dashboard Page -->
+    <div id="homePage" class="page active fixed inset-0 bg-white z-[1000] overflow-y-auto">
+        <!-- Top Bar with Logo -->
+        <div class="border-b border-gray-200 bg-white sticky top-0 z-10">
+            <div class="max-w-5xl mx-auto px-8 py-8">
+                <div class="flex items-center gap-3">
+                    <div class="relative flex items-center justify-center w-8 h-8 rounded-lg" style="background-color: #1e3a5f;">
+                        <svg class="w-5 h-5 text-white" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                    </div>
+                    <div class="text-xl font-bold" style="color: #1e3a5f;">MedCase</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="max-w-5xl mx-auto px-4 py-12">
+            <!-- Header -->
+            <div class="mb-6">
+                <h1 class="text-2xl font-semibold text-gray-900 mb-1">Problems</h1>
+                <p class="text-sm text-gray-500">Practice your clinical skills with realistic patient scenarios</p>
+            </div>
+            
+            <!-- Stats Bar -->
+            <div class="mb-4 grid grid-cols-4 gap-4">
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4">
+                    <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Total Problems Completed</div>
+                    <div id="totalProblems" class="text-2xl font-semibold text-gray-900">7</div>
+                </div>
+                <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Easy</div>
+                    <div id="easyCount" class="text-2xl font-semibold text-green-700">2</div>
+                </div>
+                <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Medium</div>
+                    <div id="mediumCount" class="text-2xl font-semibold text-yellow-700">4</div>
+                </div>
+                <div class="bg-red-50 border border-red-200 rounded-lg p-4">
+                    <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Hard</div>
+                    <div id="hardCount" class="text-2xl font-semibold text-red-700">1</div>
+                </div>
+            </div>
+            
+            <!-- Filters and Search -->
+            <div class="mb-4 flex flex-wrap gap-3 items-center">
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search problems..." 
+                    class="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                <select 
+                    id="difficultyFilter" 
+                    class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="All">All Difficulties</option>
+                    <option value="Easy">Easy</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Hard">Hard</option>
+                </select>
+                <select 
+                    id="categoryFilter" 
+                    class="px-4 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                    <option value="All">All Categories</option>
+                    <option value="Emergency Medicine">Emergency Medicine</option>
+                    <option value="Neurology">Neurology</option>
+                    <option value="Pediatrics">Pediatrics</option>
+                    <option value="Cardiology">Cardiology</option>
+                    <option value="Endocrinology">Endocrinology</option>
+                    <option value="Surgery">Surgery</option>
+                </select>
+            </div>
+            
+            <!-- Problems Table -->
+            <div class="bg-white border border-gray-200 rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-gray-50 border-b border-gray-200">
+                            <tr>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-16">Status</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-20">ID</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Title</th>
+                                <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-24">Difficulty</th>
+                            </tr>
+                        </thead>
+                        <tbody id="problemsList" class="bg-white divide-y divide-gray-200">
+                            <!-- Problems will be dynamically generated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
     </div>
     
     <!-- Title Page -->
-    <div id="titlePage" class="page fixed inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col items-center justify-center z-[1000]">
-        <div class="text-center max-w-4xl px-6">
-            <div id="titleText" class="text-7xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-8 min-h-[80px]"></div>
-            <div id="modeButtonsContainer" class="hidden gap-6 mt-12 flex flex-col items-center">
+    <div id="titlePage" class="page fixed inset-0 bg-white flex flex-col items-center justify-center z-[1000]">
+        <div class="text-center max-w-3xl px-6">
+            <div id="titleText" class="text-3xl font-semibold text-gray-900 mb-8 min-h-[48px]"></div>
+            <div id="modeButtonsContainer" class="hidden gap-4 mt-8 flex flex-col items-center">
                 <!-- Learning Mode with Guidance Levels -->
-                <div class="mb-4">
-                    <button id="learningModeButton" class="px-16 py-5 text-xl font-semibold bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-xl shadow-lg hover:shadow-xl hover:from-blue-600 hover:to-blue-700 active:scale-[0.98] transition-all mb-4">
-                        📚 Learning Mode
+                <div class="mb-4 w-full max-w-md">
+                    <button id="learningModeButton" class="w-full px-8 py-4 text-lg font-medium bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors mb-4 border border-blue-700">
+                        Learning Mode
                     </button>
-                    <div id="guidanceLevelContainer" class="hidden mt-4 space-y-3 bg-white/80 backdrop-blur-sm p-6 rounded-xl shadow-lg border-2 border-blue-200">
-                        <div class="text-lg font-bold text-gray-800 mb-4">Select Guidance Level:</div>
-                        <div class="flex flex-col gap-3">
-                            <button id="guidanceLowButton" class="guidance-level-btn px-6 py-3 text-base font-semibold bg-green-50 hover:bg-green-100 text-green-700 border-2 border-green-300 rounded-lg transition-all text-left">
-                                <div class="font-bold">🌱 Minimal Guidance</div>
-                                <div class="text-sm text-gray-600 mt-1">Socratic questions to encourage independent thinking</div>
+                    <div id="guidanceLevelContainer" class="hidden mt-4 space-y-2 bg-gray-50 p-5 rounded-lg border border-gray-300">
+                        <div class="text-base font-semibold text-gray-900 mb-3">Select Guidance Level:</div>
+                        <div class="flex flex-col gap-2">
+                            <button id="guidanceLowButton" class="guidance-level-btn px-4 py-3 text-sm font-medium bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-md transition-colors text-left">
+                                <div class="font-semibold">Minimal Guidance</div>
+                                <div class="text-xs text-gray-600 mt-1">Socratic questions to encourage independent thinking</div>
                             </button>
-                            <button id="guidanceMediumButton" class="guidance-level-btn px-6 py-3 text-base font-semibold bg-yellow-50 hover:bg-yellow-100 text-yellow-700 border-2 border-yellow-300 rounded-lg transition-all text-left">
-                                <div class="font-bold">💡 Moderate Guidance</div>
-                                <div class="text-sm text-gray-600 mt-1">Educational hints with medical knowledge context</div>
+                            <button id="guidanceMediumButton" class="guidance-level-btn px-4 py-3 text-sm font-medium bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-md transition-colors text-left">
+                                <div class="font-semibold">Moderate Guidance</div>
+                                <div class="text-xs text-gray-600 mt-1">Educational hints with medical knowledge context</div>
                             </button>
-                            <button id="guidanceHighButton" class="guidance-level-btn px-6 py-3 text-base font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border-2 border-blue-300 rounded-lg transition-all text-left">
-                                <div class="font-bold">📖 Extensive Guidance</div>
-                                <div class="text-sm text-gray-600 mt-1">Detailed explanations and learning support</div>
+                            <button id="guidanceHighButton" class="guidance-level-btn px-4 py-3 text-sm font-medium bg-white hover:bg-gray-50 text-gray-900 border border-gray-300 rounded-md transition-colors text-left">
+                                <div class="font-semibold">Extensive Guidance</div>
+                                <div class="text-xs text-gray-600 mt-1">Detailed explanations and learning support</div>
                             </button>
                         </div>
                     </div>
                 </div>
                 <!-- Test Mode -->
-                <div>
-                    <button id="testModeButton" class="px-16 py-5 text-xl font-semibold bg-gradient-to-r from-purple-500 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl hover:from-purple-600 hover:to-purple-700 active:scale-[0.98] transition-all">
-                        🧪 Test Mode
+                <div class="w-full max-w-md">
+                    <button id="testModeButton" class="w-full px-8 py-4 text-lg font-medium bg-gray-800 text-white rounded-lg hover:bg-gray-900 transition-colors border border-gray-900">
+                        Test Mode
                     </button>
                 </div>
             </div>

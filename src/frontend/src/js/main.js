@@ -57,7 +57,7 @@ const finishPageEl = document.getElementById('finishPage');
 function getRoutes() {
   return {
     '/': homePageEl,
-    '/home': titlePageEl,
+    '/scenario': titlePageEl,
     '/simulation': simulationPageEl,
     '/session': simulationPageEl, // alias
     '/finish': finishPageEl,
@@ -154,9 +154,10 @@ async function initializeInterface(mode, level = null) {
     // Load patient info from response
     const patientInfo = {
       name: 'Sarah Johnson',
-      age: 58,
+      age: 70,
       sex: 'F',
-      chiefComplaint: response.introLine || 'Chest pain for 2 hours'
+      chiefComplaint: response.introLine || 'Chest pain for 2 hours',
+      image: '/src/beautiful-50-year-old-woman-617685.webp'
     };
 
     // Clear previous state
@@ -325,7 +326,7 @@ async function submitDiagnosis() {
 }
 
 /**
- * Go home (return to title page)
+ * Go home (return to dashboard)
  */
 function goHome() {
   // Hide all UI elements
@@ -347,8 +348,8 @@ function goHome() {
   lastUserMessage = '';
   lastPatientReply = '';
 
-  // Navigate to home
-  window.location.href = '/home';
+  // Navigate to dashboard
+  window.location.href = '/';
 }
 
 // Initialize

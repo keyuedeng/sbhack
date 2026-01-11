@@ -2,12 +2,12 @@
   "caseId": "chest-pain-001",
   "level": 1,
   "title": "Acute Chest Pain in Emergency Department",
-  "description": "58-year-old woman presents with chest pain - classic NSTEMI presentation",
+  "description": "70-year-old woman presents with chest pain - classic NSTEMI presentation",
   "specialty": "emergency medicine",
   
   "patient": {
     "name": "Sarah Johnson",
-    "age": 58,
+    "age": 70,
     "sex": "F",
     "chiefComplaint": "Chest pain for 2 hours",
     
