@@ -17,7 +17,9 @@ export const TIME_LIMITS = {
 };
 
 // Scoring weights (can be adjusted)
-const MAX_DIAGNOSIS_SCORE = 25;
+const MAX_DIAGNOSIS_SCORE = 25; // Total: diagnosis correctness (20) + intervention (5)
+const MAX_DIAGNOSIS_CORRECTNESS_SCORE = 20; // For diagnosis correctness alone
+const MAX_INTERVENTION_SCORE = 5; // For intervention appropriateness
 const MAX_CRITICAL_ACTIONS_SCORE = 25;
 const MAX_COMMUNICATION_SCORE = 20;
 const MAX_EFFICIENCY_SCORE = 30;
@@ -39,63 +41,225 @@ export function getSessionDuration(session: Session): number {
 
 /**
  * Score diagnosis correctness (0-25 points) using LLM comparison
+ * Includes: diagnosis correctness (0-20) + intervention appropriateness (0-5)
  * Uses the submitted diagnosis from the session, not conversation messages
+ * Returns an object with both scores separately
  */
-export async function scoreDiagnosis(session: Session, caseData: MedicalCase): Promise<number> {
+export async function scoreDiagnosis(session: Session, caseData: MedicalCase): Promise<{ total: number; correctness: number; intervention: number }> {
   // Use submittedDiagnosis if available (from diagnosis submission), otherwise check messages
   const diagnosisText = session.submittedDiagnosis 
     ? session.submittedDiagnosis.toLowerCase()
     : session.messages.filter(m => m.role === 'user').map(m => m.content.toLowerCase()).join(' ');
   
-  // Extract just the diagnosis part (before "| Intervention:")
-  const diagnosisOnly = diagnosisText.split('| intervention:')[0].trim();
+  // Extract diagnosis and intervention parts
+  const parts = diagnosisText.split(/[|]\s*[Ii]ntervention:/);
+  const diagnosisOnly = parts[0].trim();
+  const interventionText = parts.length > 1 ? parts[1].trim() : '';
   
   if (!diagnosisOnly) {
-    return 0;
+    console.log(`[Diagnosis Scoring] ❌ No diagnosis provided - Assigning 0 points`);
+    return {
+      total: 0,
+      correctness: 0,
+      intervention: 0
+    };
   }
   
   const primaryDiagnosis = caseData.diagnosis.primary;
   const differentials = caseData.diagnosis.differentials;
   
+  // Score diagnosis correctness (0-20 points)
+  let diagnosisCorrectnessScore = 0;
+  
   // Try LLM-based comparison first
   try {
-    const llmScore = await compareDiagnosisWithLLM(diagnosisOnly, primaryDiagnosis, differentials);
-    if (llmScore !== null) {
-      return llmScore;
+    console.log(`[Diagnosis Scoring] Comparing: "${diagnosisOnly}" with primary: "${primaryDiagnosis}"`);
+    const llmResult = await compareDiagnosisWithLLM(diagnosisOnly, primaryDiagnosis, differentials);
+    if (llmResult !== null) {
+      // Convert result to 20/12/0 scale
+      if (llmResult === 'PRIMARY') {
+        diagnosisCorrectnessScore = MAX_DIAGNOSIS_CORRECTNESS_SCORE;
+        console.log(`[Diagnosis Scoring] ✅ PRIMARY match - Assigning ${diagnosisCorrectnessScore} points for diagnosis correctness`);
+      } else if (llmResult === 'DIFFERENTIAL') {
+        diagnosisCorrectnessScore = Math.floor(MAX_DIAGNOSIS_CORRECTNESS_SCORE * 0.6); // 12 points
+        console.log(`[Diagnosis Scoring] ⚠️ DIFFERENTIAL match - Assigning ${diagnosisCorrectnessScore} points for diagnosis correctness (60% credit)`);
+      } else {
+        diagnosisCorrectnessScore = 0;
+        console.log(`[Diagnosis Scoring] ❌ INCORRECT diagnosis - Assigning 0 points for diagnosis correctness`);
+      }
+    } else {
+      console.log(`[Diagnosis Scoring] LLM returned null, using fallback string matching`);
+      // Fallback scoring
+      diagnosisCorrectnessScore = await scoreDiagnosisCorrectnessFallback(diagnosisOnly, primaryDiagnosis, differentials);
     }
   } catch (error: any) {
     console.error('Error in LLM diagnosis comparison, falling back to string matching:', error?.message || error);
+    diagnosisCorrectnessScore = await scoreDiagnosisCorrectnessFallback(diagnosisOnly, primaryDiagnosis, differentials);
   }
   
-  // Fallback to string matching if LLM fails
+  // Score intervention appropriateness (0-5 points)
+  let interventionScore = 0;
+  if (interventionText) {
+    interventionScore = await scoreIntervention(interventionText, primaryDiagnosis, caseData);
+  } else {
+    console.log(`[Intervention Scoring] No intervention provided - Assigning 0 points`);
+  }
+  
+  const totalScore = diagnosisCorrectnessScore + interventionScore;
+  console.log(`[Diagnosis Scoring] Total score: ${diagnosisCorrectnessScore} (diagnosis) + ${interventionScore} (intervention) = ${totalScore} points`);
+  
+  return {
+    total: totalScore,
+    correctness: diagnosisCorrectnessScore,
+    intervention: interventionScore
+  };
+}
+
+/**
+ * Fallback function for diagnosis correctness scoring (0-20 points)
+ */
+async function scoreDiagnosisCorrectnessFallback(
+  diagnosisOnly: string,
+  primaryDiagnosis: string,
+  differentials: string[]
+): Promise<number> {
   const diagnosisOnlyLower = diagnosisOnly.toLowerCase();
   const primaryDiagnosisLower = primaryDiagnosis.toLowerCase();
   const differentialsLower = differentials.map(d => d.toLowerCase());
   
+  console.log(`[Diagnosis Scoring] Using fallback string matching...`);
+  
   // Check for exact or close match of primary diagnosis
   if (containsDiagnosis(diagnosisOnlyLower, primaryDiagnosisLower)) {
-    return MAX_DIAGNOSIS_SCORE;
+    console.log(`[Diagnosis Scoring] ✅ Primary diagnosis match found - Assigning ${MAX_DIAGNOSIS_CORRECTNESS_SCORE} points`);
+    return MAX_DIAGNOSIS_CORRECTNESS_SCORE;
+  }
+  
+  // Special handling: If primary is MI-related and user says "heart attack" or "MI", accept it
+  const miTerms = ['nstemi', 'stemi', 'myocardial infarction', 'mi'];
+  const isMIPrimary = miTerms.some(term => primaryDiagnosisLower.includes(term));
+  const isHeartAttack = diagnosisOnlyLower.includes('heart attack') || 
+                        diagnosisOnlyLower === 'mi' || 
+                        diagnosisOnlyLower.includes('myocardial infarction');
+  
+  if (isMIPrimary && isHeartAttack) {
+    console.log(`[Diagnosis Scoring] ✅ Heart attack/MI match detected - Assigning ${MAX_DIAGNOSIS_CORRECTNESS_SCORE} points`);
+    return MAX_DIAGNOSIS_CORRECTNESS_SCORE;
   }
   
   // Check for differential diagnoses (partial credit)
   for (const diff of differentialsLower) {
     if (containsDiagnosis(diagnosisOnlyLower, diff)) {
-      return Math.floor(MAX_DIAGNOSIS_SCORE * 0.6); // 60% credit for differential
+      const partialScore = Math.floor(MAX_DIAGNOSIS_CORRECTNESS_SCORE * 0.6); // 12 points
+      console.log(`[Diagnosis Scoring] ⚠️ Differential diagnosis match found (${diff}) - Assigning ${partialScore} points (60% credit)`);
+      return partialScore;
     }
   }
   
+  console.log(`[Diagnosis Scoring] ❌ No match found - Assigning 0 points`);
   return 0;
 }
 
 /**
+ * Score intervention appropriateness using LLM (0-5 points)
+ */
+async function scoreIntervention(
+  interventionText: string,
+  primaryDiagnosis: string,
+  caseData: MedicalCase
+): Promise<number> {
+  const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+  
+  const criticalActions = caseData.diagnosis.criticalActions?.join(', ') || 'Not specified';
+  
+  const systemPrompt = `You are a medical education assistant evaluating a student's intervention/treatment plan.
+
+Your task is to evaluate if the student's proposed intervention is appropriate for the given diagnosis.
+
+Scoring rules:
+- Return "APPROPRIATE" (5 points) if the intervention is medically appropriate and standard for this diagnosis
+- Return "PARTIAL" (3 points) if the intervention is somewhat appropriate but incomplete or not ideal
+- Return "INAPPROPRIATE" (0 points) if the intervention is wrong, harmful, or not relevant
+
+Important:
+- Consider standard treatments for the diagnosis (e.g., for NSTEMI: aspirin, cardiac monitoring, referral to cardiology, blood tests)
+- Common interventions: medication, referral to specialist, diagnostic tests, monitoring, hospital admission
+- Be flexible with terminology - "referral to cardiology" = "cardiology consult" = "consult cardiology"
+- "Appropriate" means the intervention would be clinically indicated for this diagnosis
+- "Partial" means it's on the right track but missing important components or not the best choice
+- "Inappropriate" means it's wrong, contraindicated, or not relevant
+
+Examples for NSTEMI:
+- "Referral to cardiology" or "Cardiology consult" → APPROPRIATE
+- "Aspirin" → PARTIAL (correct but incomplete - needs more comprehensive management)
+- "Blood test" or "Troponin" → PARTIAL (correct component but needs more)
+- "Discharge home" or "Give NSAIDs" → INAPPROPRIATE
+- "Antibiotics" or "Physical therapy" → INAPPROPRIATE
+
+Respond with ONLY one word: "APPROPRIATE", "PARTIAL", or "INAPPROPRIATE"`;
+
+  const userPrompt = `Primary diagnosis: ${primaryDiagnosis}
+
+Critical actions for this case: ${criticalActions}
+
+Student's proposed intervention: "${interventionText}"
+
+Is the student's intervention appropriate, partially appropriate, or inappropriate for this diagnosis?`;
+
+  try {
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ],
+      temperature: 0.1,
+      max_tokens: 10
+    });
+
+    const rawResult = response.choices[0]?.message?.content?.trim().toUpperCase();
+    
+    let result: string;
+    if (rawResult?.includes('APPROPRIATE') && !rawResult?.includes('INAPPROPRIATE')) {
+      result = 'APPROPRIATE';
+    } else if (rawResult?.includes('PARTIAL')) {
+      result = 'PARTIAL';
+    } else if (rawResult?.includes('INAPPROPRIATE')) {
+      result = 'INAPPROPRIATE';
+    } else {
+      console.warn(`[Intervention Scoring] Could not parse LLM result: "${rawResult}", defaulting to INAPPROPRIATE`);
+      result = 'INAPPROPRIATE';
+    }
+    
+    console.log(`[Intervention Scoring] Submitted: "${interventionText}", Diagnosis: "${primaryDiagnosis}", LLM Result: "${result}" (raw: "${rawResult}")`);
+    
+    if (result === 'APPROPRIATE') {
+      console.log(`[Intervention Scoring] ✅ APPROPRIATE - Assigning ${MAX_INTERVENTION_SCORE} points`);
+      return MAX_INTERVENTION_SCORE;
+    } else if (result === 'PARTIAL') {
+      const partialScore = Math.floor(MAX_INTERVENTION_SCORE * 0.6); // 3 points
+      console.log(`[Intervention Scoring] ⚠️ PARTIAL - Assigning ${partialScore} points (60% credit)`);
+      return partialScore;
+    } else {
+      console.log(`[Intervention Scoring] ❌ INAPPROPRIATE - Assigning 0 points`);
+      return 0;
+    }
+  } catch (error: any) {
+    console.error('OpenAI API error in intervention evaluation:', error?.message || error);
+    console.log(`[Intervention Scoring] Error occurred, defaulting to 0 points`);
+    return 0;
+  }
+}
+
+/**
  * Compare submitted diagnosis with correct answer using LLM
- * Returns: 25 for correct, 15 for differential, 0 for incorrect, null if error
+ * Returns: "PRIMARY", "DIFFERENTIAL", or "INCORRECT", or null if error
  */
 async function compareDiagnosisWithLLM(
   submittedDiagnosis: string,
   primaryDiagnosis: string,
   differentials: string[]
-): Promise<number | null> {
+): Promise<'PRIMARY' | 'DIFFERENTIAL' | 'INCORRECT' | null> {
   const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
   
   const systemPrompt = `You are a medical education assistant evaluating a student's diagnosis submission.
@@ -109,18 +273,23 @@ Scoring rules:
 
 Important:
 - Be flexible with medical terminology - "NSTEMI" = "Non-ST Elevation Myocardial Infarction" = "non-ST elevation MI"
-- Consider synonyms and abbreviations
+- Consider synonyms, abbreviations, and common lay terms
+- CRITICAL: "Heart attack" is a common lay term for myocardial infarction. If the primary diagnosis contains "MI", "Myocardial Infarction", "NSTEMI", or "STEMI", then "heart attack" or "MI" should be accepted as PRIMARY match
 - "Acute coronary syndrome" is broader than "NSTEMI" but could be a differential
 - Be STRICT - only return PRIMARY if it's truly the same diagnosis, not just related
 - If the student's diagnosis is wrong (even if related to the correct diagnosis), return "INCORRECT"
-- Only return PRIMARY for exact matches or medically equivalent terms
+- Only return PRIMARY for exact matches or medically equivalent terms (including common lay terms like "heart attack" for MI)
 - Only return DIFFERENTIAL if it matches one of the listed differential diagnoses
 - If it doesn't match primary or any differential, return "INCORRECT"
 
 Examples:
-- Primary is "NSTEMI", student says "NSTEMI" or "Non-ST Elevation MI" → PRIMARY
-- Primary is "NSTEMI", student says "Acute coronary syndrome" → DIFFERENTIAL (if in differentials list)
-- Primary is "NSTEMI", student says "STEMI" or "GERD" or "Appendicitis" → INCORRECT
+- Primary is "NSTEMI (Non-ST Elevation Myocardial Infarction)", student says "NSTEMI" → PRIMARY
+- Primary is "NSTEMI (Non-ST Elevation Myocardial Infarction)", student says "Non-ST Elevation MI" → PRIMARY
+- Primary is "NSTEMI (Non-ST Elevation Myocardial Infarction)", student says "heart attack" → PRIMARY (because NSTEMI is a type of heart attack/MI)
+- Primary is "NSTEMI (Non-ST Elevation Myocardial Infarction)", student says "MI" → PRIMARY
+- Primary is "NSTEMI (Non-ST Elevation Myocardial Infarction)", student says "Myocardial Infarction" → PRIMARY
+- Primary is "NSTEMI (Non-ST Elevation Myocardial Infarction)", student says "Acute coronary syndrome" → DIFFERENTIAL (if in differentials list)
+- Primary is "NSTEMI (Non-ST Elevation Myocardial Infarction)", student says "STEMI" or "GERD" or "Appendicitis" → INCORRECT
 
 Respond with ONLY one word: "PRIMARY", "DIFFERENTIAL", or "INCORRECT"`;
 
@@ -146,7 +315,7 @@ Does the student's diagnosis match the primary diagnosis, a differential diagnos
     const rawResult = response.choices[0]?.message?.content?.trim().toUpperCase();
     
     // Extract the result word (handle cases where LLM returns more than one word)
-    let result: string;
+    let result: 'PRIMARY' | 'DIFFERENTIAL' | 'INCORRECT';
     if (rawResult?.includes('PRIMARY')) {
       result = 'PRIMARY';
     } else if (rawResult?.includes('DIFFERENTIAL')) {
@@ -162,13 +331,7 @@ Does the student's diagnosis match the primary diagnosis, a differential diagnos
     // Log for debugging
     console.log(`[Diagnosis Comparison] Submitted: "${submittedDiagnosis}", Primary: "${primaryDiagnosis}", LLM Result: "${result}" (raw: "${rawResult}")`);
     
-    if (result === 'PRIMARY') {
-      return MAX_DIAGNOSIS_SCORE; // 25 points
-    } else if (result === 'DIFFERENTIAL') {
-      return Math.floor(MAX_DIAGNOSIS_SCORE * 0.6); // 15 points (60% credit)
-    } else {
-      return 0; // Incorrect
-    }
+    return result;
   } catch (error: any) {
     console.error('OpenAI API error in diagnosis comparison:', error?.message || error);
     return null; // Return null to trigger fallback
@@ -200,6 +363,10 @@ function containsDiagnosis(text: string, diagnosis: string): boolean {
 /**
  * Score critical actions performed (0-25 points)
  * Returns score and lists of performed/missed actions
+ * 
+ * In a chat-only interface, actions can only be performed via the intervention field
+ * at the end. We check both session.actions (for future interactive features) and
+ * the submitted intervention text.
  */
 export function scoreCriticalActions(
   session: Session,
@@ -211,15 +378,32 @@ export function scoreCriticalActions(
     return { score: MAX_CRITICAL_ACTIONS_SCORE, performed: [], missed: [] };
   }
   
+  // Extract intervention text from submitted diagnosis (if available)
+  let interventionText = '';
+  if (session.submittedDiagnosis) {
+    const parts = session.submittedDiagnosis.split(/[|]\s*[Ii]ntervention:/);
+    if (parts.length > 1) {
+      interventionText = parts[1].trim().toLowerCase();
+    }
+  }
+  
   const performed: string[] = [];
   const missed: string[] = [];
   
   for (const criticalAction of criticalActions) {
-    const wasPerformed = session.actions.some(action => 
+    // Check if action was performed during the session (for interactive interfaces)
+    const wasPerformedInSession = session.actions.some(action => 
       matchesAction(action.actionType, criticalAction)
     );
     
-    if (wasPerformed) {
+    // Check if action was mentioned in the submitted intervention (for chat-only interface)
+    // This is the primary method in a chat-only system where users can't perform actions
+    // during the conversation, only at the end via the intervention field
+    const wasMentionedInIntervention = interventionText && 
+      matchesAction(interventionText, criticalAction);
+    
+    // Count as performed if either condition is true
+    if (wasPerformedInSession || wasMentionedInIntervention) {
       performed.push(criticalAction);
     } else {
       missed.push(criticalAction);
@@ -445,8 +629,8 @@ function scoreActionOrdering(session: Session): number {
 export async function calculateScoringContext(
   session: Session,
   caseData: MedicalCase
-): Promise<ScoringContext> {
-  const diagnosisScore = await scoreDiagnosis(session, caseData);
+): Promise<ScoringContext & { diagnosisCorrectnessScore: number; interventionScore: number }> {
+  const diagnosisResult = await scoreDiagnosis(session, caseData);
   const criticalActionsResult = scoreCriticalActions(session, caseData);
   const communicationScore = scoreCommunication(session, caseData);
   const efficiencyScore = scoreEfficiency(session);
@@ -456,7 +640,9 @@ export async function calculateScoringContext(
   const duration = getSessionDuration(session);
   
   return {
-    diagnosisScore,
+    diagnosisScore: diagnosisResult.total,
+    diagnosisCorrectnessScore: diagnosisResult.correctness,
+    interventionScore: diagnosisResult.intervention,
     criticalActionsScore: criticalActionsResult.score,
     communicationScore,
     efficiencyScore,
