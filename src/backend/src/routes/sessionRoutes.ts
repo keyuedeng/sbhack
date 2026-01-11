@@ -10,7 +10,10 @@ import {
   recordSessionAction,
   exportSession,
   endSession,
-  getFeedback
+  getFeedback,
+  generateTTS,
+  transcribeAudio,
+  uploadAudio
 } from '../controllers/sessionController';
 
 const router = Router();
@@ -50,5 +53,17 @@ router.get('/export', exportSession);
  * Get feedback/analysis for a completed session
  */
 router.get('/feedback', getFeedback);
+
+/**
+ * POST /session/tts
+ * Generate text-to-speech audio from text
+ */
+router.post('/tts', generateTTS);
+
+/**
+ * POST /session/transcribe
+ * Transcribe audio file to text
+ */
+router.post('/transcribe', uploadAudio.single('audio'), transcribeAudio);
 
 export default router;

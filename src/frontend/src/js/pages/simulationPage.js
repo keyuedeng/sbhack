@@ -7,10 +7,11 @@ const homeButton = document.getElementById('homeButton');
 const messagesContainer = document.getElementById('messagesContainer');
 const messageInput = document.getElementById('messageInput');
 const sendButton = document.getElementById('sendButton');
+const microphoneButton = document.getElementById('microphoneButton');
 const diagnoseButton = document.getElementById('diagnoseButton');
 const feedbackSidebar = document.getElementById('feedbackSidebar');
 
-export function initSimulationPage(onHomeClick, onSendClick, onDiagnoseClick) {
+export function initSimulationPage(onHomeClick, onSendClick, onDiagnoseClick, onMicrophoneClick) {
   // Event listeners
   if (homeButton) {
     homeButton.addEventListener('click', onHomeClick);
@@ -26,9 +27,17 @@ export function initSimulationPage(onHomeClick, onSendClick, onDiagnoseClick) {
     });
   }
   
+  if (microphoneButton && onMicrophoneClick) {
+    microphoneButton.addEventListener('click', onMicrophoneClick);
+  }
+  
   if (diagnoseButton) {
     diagnoseButton.addEventListener('click', onDiagnoseClick);
   }
+}
+
+export function getMicrophoneButton() {
+  return microphoneButton;
 }
 
 export function showSimulationPage() {

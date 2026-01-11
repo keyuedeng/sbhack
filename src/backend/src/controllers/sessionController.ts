@@ -9,6 +9,11 @@ import { createSession, getSession, appendMessage, recordAction, markEnded, stor
 import { generatePatientReply } from '../services/patientEngine';
 import { CreateSessionParams } from '../models/session.types';
 import { analyzeSession } from '../feedback';
+import { generateSpeech } from '../services/ttsService';
+import { transcribeAudio as transcribeAudioService } from '../services/transcriptionService';
+import multer from 'multer';
+import * as path from 'path';
+import * as fs from 'fs';
 
 /**
  * POST /session/start
@@ -573,3 +578,115 @@ function processAction(session: any, actionType: string, details?: any): string 
   // Default response for unrecognized actions
   return `Action "${actionType}" recorded.`;
 }
+
+/**
+ * POST /session/tts
+ * Generate text-to-speech audio from text
+ * 
+ * Request body:
+ * {
+ *   text: string
+ * }
+ * 
+ * Response:
+ * {
+ *   audioUrl: string
+ * }
+ */
+export async function generateTTS(req: Request, res: Response): Promise<void> {
+  try {
+    const { text } = req.body;
+    
+    // Validate inputs
+    if (!text || typeof text !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid text' });
+      return;
+    }
+    
+    // Sanitize text (limit length)
+    const sanitizedText = text.trim().substring(0, 2000); // Max 2000 chars
+    
+    if (!sanitizedText) {
+      res.status(400).json({ error: 'Text cannot be empty' });
+      return;
+    }
+    
+    // Generate speech using TTS service
+    const audioUrl = await generateSpeech(sanitizedText);
+    
+    res.json({
+      audioUrl
+    });
+    
+  } catch (error: any) {
+    console.error('Error generating TTS:', error);
+    
+    // Handle specific errors
+    if (error.message && error.message.includes('DEEPGRAM_API_KEY')) {
+      res.status(500).json({ error: 'TTS service configuration error' });
+      return;
+    }
+    
+    res.status(500).json({ error: 'Failed to generate speech' });
+  }
+}
+
+/**
+ * POST /session/transcribe
+ * Transcribe audio file to text
+ * 
+ * Request: multipart/form-data with 'audio' file
+ * 
+ * Response:
+ * {
+ *   transcript: string
+ * }
+ */
+export async function transcribeAudio(req: Request, res: Response): Promise<void> {
+  try {
+    if (!req.file) {
+      res.status(400).json({ error: 'No audio file provided' });
+      return;
+    }
+
+    const audioFilePath = req.file.path;
+
+    try {
+      console.log('Received audio file:', audioFilePath, 'Size:', req.file.size, 'Type:', req.file.mimetype);
+      
+      // Transcribe audio using transcription service
+      const transcript = await transcribeAudioService(audioFilePath);
+      
+      console.log('Transcription successful:', transcript);
+
+      // Clean up temporary file
+      try {
+        fs.unlinkSync(audioFilePath);
+      } catch (cleanupError) {
+        console.error('Error cleaning up temp file:', cleanupError);
+      }
+
+      res.json({
+        transcript
+      });
+    } catch (error: any) {
+      // Clean up temporary file on error
+      try {
+        fs.unlinkSync(audioFilePath);
+      } catch (cleanupError) {
+        console.error('Error cleaning up temp file:', cleanupError);
+      }
+
+      throw error;
+    }
+  } catch (error: any) {
+    console.error('Error transcribing audio:', error);
+    res.status(500).json({ error: 'Failed to transcribe audio' });
+  }
+}
+
+// Export multer middleware for route
+export const uploadAudio = multer({ 
+  dest: path.join(process.cwd(), 'src', 'backend', 'public', 'temp'),
+  limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+});

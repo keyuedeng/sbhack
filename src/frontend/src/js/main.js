@@ -8,6 +8,7 @@ import { Timer } from './utils/timer.js';
 import { addMessage, clearMessages } from './components/messages.js';
 import { updatePatientInfo } from './components/patientInfo.js';
 import { displayFeedback, clearFeedback } from './components/feedback.js';
+import { startSpeechToText, stopSpeechToText, isRecordingAudio } from './services/speechToText.js';
 
 // Page modules
 import { initHomePage, showHomePage, hideHomePage } from './pages/homePage.js';
@@ -178,6 +179,8 @@ async function initializeInterface(mode) {
     if (response.introLine) {
       setTimeout(() => {
         addMessage(messagesContainer, response.introLine, false);
+        // Automatically play speech for intro message
+        playSpeechAutomatically(response.introLine);
       }, 500);
     }
 
@@ -204,21 +207,51 @@ async function sendMessage() {
   const messageInput = getMessageInput();
   const messagesContainer = getMessagesContainer();
   const text = messageInput.value.trim();
-  if (!text || !currentSessionId) return;
+  
+  console.log('📤 sendMessage called with:', text);
+  console.log('📤 currentSessionId:', currentSessionId);
+  
+  if (!text) {
+    console.warn('⚠️ No text to send');
+    return;
+  }
+  if (!currentSessionId) {
+    console.error('❌ No session ID!');
+    return;
+  }
 
   try {
+    console.log('✅ Adding user message to UI');
     addMessage(messagesContainer, text, true);
     messageInput.value = '';
 
+    console.log('📡 Sending message to backend...');
     // Send to backend
     const response = await apiService.sendMessage(currentSessionId, text);
+    console.log('✅ Backend response received:', response);
     
     // Add patient reply
-    addMessage(messagesContainer, response.patientReply, false);
+    if (response.patientReply) {
+      console.log('✅ Adding patient reply to UI');
+      addMessage(messagesContainer, response.patientReply, false);
+      
+      // Automatically play speech for patient reply
+      console.log('🔊 Playing patient speech...');
+      await playSpeechAutomatically(response.patientReply);
+    } else {
+      console.warn('⚠️ No patientReply in response');
+    }
 
   } catch (error) {
     console.error('Error sending message:', error);
-    addMessage(messagesContainer, 'Error: Could not send message. Please try again.', false);
+    const errorMsg = error.message || 'Could not send message. Please try again.';
+    
+    // Check if it's a session ended error
+    if (errorMsg.includes('Session has ended')) {
+      addMessage(messagesContainer, 'Error: Session has ended. Please start a new session.', false);
+    } else {
+      addMessage(messagesContainer, `Error: ${errorMsg}`, false);
+    }
   }
 }
 
@@ -294,6 +327,88 @@ function goHome() {
   window.location.href = '/home';
 }
 
+/**
+ * Automatically play speech for patient messages
+ * Generates TTS audio and plays it automatically
+ */
+async function playSpeechAutomatically(text) {
+  try {
+    if (!text || text.trim().length === 0) {
+      return; // Skip if text is empty
+    }
+    
+    // Generate TTS audio
+    const response = await apiService.generateTTS(text);
+    
+    // Create audio element and play
+    const audio = new Audio(`http://localhost:3000${response.audioUrl}`);
+    
+    // Handle errors silently (don't interrupt the conversation flow)
+    audio.onerror = (error) => {
+      console.error('Error playing audio:', error);
+      // Fail silently - user can still read the message
+    };
+    
+    // Play audio automatically
+    await audio.play();
+    
+  } catch (error) {
+    console.error('Error generating or playing speech:', error);
+    // Fail silently - don't interrupt the conversation flow
+    // The user can still read the message even if TTS fails
+  }
+}
+
+/**
+ * Handle microphone button click - toggle speech-to-text
+ */
+async function handleMicrophoneClick() {
+  const microphoneButton = document.getElementById('microphoneButton');
+  const messageInput = getMessageInput();
+  
+  if (!microphoneButton) return;
+  
+  try {
+    if (isRecordingAudio()) {
+      // Stop recording
+      stopSpeechToText();
+      microphoneButton.classList.remove('bg-red-500', 'hover:bg-red-600', 'text-white');
+      microphoneButton.classList.add('bg-gray-100', 'hover:bg-gray-200', 'text-gray-700');
+    } else {
+      // Start recording
+      microphoneButton.classList.remove('bg-gray-100', 'hover:bg-gray-200', 'text-gray-700');
+      microphoneButton.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white');
+      
+      await startSpeechToText((transcript) => {
+        console.log('✅ Transcript callback received:', transcript);
+        // Update input field with transcript
+        if (messageInput) {
+          const currentText = messageInput.value.trim();
+          const newText = currentText ? `${currentText} ${transcript}` : transcript;
+          messageInput.value = newText;
+          console.log('✅ Input field updated with:', newText);
+          
+          // Auto-send message after getting transcript
+          setTimeout(() => {
+            console.log('🔄 Auto-sending message...');
+            stopSpeechToText();
+            microphoneButton.classList.remove('bg-red-500', 'hover:bg-red-600', 'text-white');
+            microphoneButton.classList.add('bg-gray-100', 'hover:bg-gray-200', 'text-gray-700');
+            sendMessage();
+          }, 500);
+        } else {
+          console.error('❌ messageInput is null!');
+        }
+      });
+    }
+  } catch (error) {
+    console.error('Error with microphone:', error);
+    alert('Failed to access microphone. Please grant permission and try again.');
+    microphoneButton.classList.remove('bg-red-500', 'hover:bg-red-600', 'text-white');
+    microphoneButton.classList.add('bg-gray-100', 'hover:bg-gray-200', 'text-gray-700');
+  }
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize router (must be first)
@@ -305,7 +420,7 @@ document.addEventListener('DOMContentLoaded', () => {
     () => initializeInterface('learning'),
     () => initializeInterface('test')
   );
-  initSimulationPage(goHome, sendMessage, showDiagnosisModal);
+  initSimulationPage(goHome, sendMessage, showDiagnosisModal, handleMicrophoneClick);
   initFinishPage(goHome);
 
   // Initialize timer
