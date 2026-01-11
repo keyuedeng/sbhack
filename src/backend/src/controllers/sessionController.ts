@@ -5,7 +5,7 @@
 
 import { Request, Response } from 'express';
 import { loadCase } from '../services/caseLoader';
-import { createSession, getSession, appendMessage, recordAction, markEnded } from '../store/sessionStore';
+import { createSession, getSession, appendMessage, recordAction, markEnded, storeFeedback } from '../store/sessionStore';
 import { generatePatientReply } from '../services/patientEngine';
 import { CreateSessionParams } from '../models/session.types';
 
@@ -269,6 +269,76 @@ export async function recordSessionAction(req: Request, res: Response): Promise<
 }
 
 /**
+ * POST /session/end
+ * End a session and record submitted diagnosis
+ * 
+ * Request body:
+ * {
+ *   sessionId: string,
+ *   diagnosis: string
+ * }
+ * 
+ * Response:
+ * {
+ *   success: boolean,
+ *   sessionId: string,
+ *   endedAt: number
+ * }
+ */
+export function endSession(req: Request, res: Response): void {
+  try {
+    const { sessionId, diagnosis } = req.body;
+    
+    // Validate inputs
+    if (!sessionId || typeof sessionId !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid sessionId' });
+      return;
+    }
+    
+    // Get session to verify it exists
+    const session = getSession(sessionId);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found or expired' });
+      return;
+    }
+    
+    // Check if session is already ended
+    if (!session.isActive) {
+      res.status(400).json({ error: 'Session has already ended' });
+      return;
+    }
+    
+    // Sanitize diagnosis if provided (limit length)
+    const sanitizedDiagnosis = diagnosis && typeof diagnosis === 'string' 
+      ? diagnosis.trim().substring(0, 500) // Max 500 chars
+      : undefined;
+    
+    // Mark session as ended with diagnosis
+    markEnded(sessionId, sanitizedDiagnosis);
+    
+    // Get updated session to get end time
+    const updatedSession = getSession(sessionId);
+    
+    res.json({
+      success: true,
+      sessionId,
+      endedAt: updatedSession?.endedAt,
+      submittedDiagnosis: sanitizedDiagnosis
+    });
+    
+  } catch (error: any) {
+    console.error('Error ending session:', error);
+    
+    if (error.message && error.message.includes('Session')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
  * GET /session/export
  * Export full session data for scoring/leaderboard
  * 
@@ -338,6 +408,97 @@ export function exportSession(req: Request, res: Response): void {
     
   } catch (error: any) {
     console.error('Error exporting session:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+/**
+ * GET /session/feedback
+ * Get feedback/analysis for a completed session
+ * 
+ * Query params:
+ *   sessionId: string
+ * 
+ * Response:
+ * {
+ *   summaryScore: number,
+ *   breakdown: { diagnosis, criticalActions, communication, efficiency },
+ *   whatWentWell: string[],
+ *   missed: string[],
+ *   redFlagsMissed: string[],
+ *   recommendations: string[]
+ * }
+ */
+export function getFeedback(req: Request, res: Response): void {
+  try {
+    const { sessionId } = req.query;
+    
+    // Validate inputs
+    if (!sessionId || typeof sessionId !== 'string') {
+      res.status(400).json({ error: 'Missing or invalid sessionId query parameter' });
+      return;
+    }
+    
+    // Get session
+    const session = getSession(sessionId as string);
+    if (!session) {
+      res.status(404).json({ error: 'Session not found or expired' });
+      return;
+    }
+    
+    // Check if session is completed
+    if (session.isActive) {
+      res.status(400).json({ error: 'Session must be completed before getting feedback' });
+      return;
+    }
+    
+    // Return cached feedback if available
+    if (session.feedbackResult) {
+      res.json(session.feedbackResult);
+      return;
+    }
+    
+    // Load case data via A1 loader
+    let caseData;
+    try {
+      caseData = loadCase(session.caseId);
+    } catch (error: any) {
+      res.status(500).json({ error: `Failed to load case: ${session.caseId}` });
+      return;
+    }
+    
+    // TODO: F1 - Import and call analyzeSession from feedback module
+    // import { analyzeSession } from '../feedback/analyzeSession';
+    // const feedbackResult = analyzeSession({ session, caseData });
+    
+    // TEMPORARY: Return stub feedback until F1 implements analyzeSession
+    const feedbackResult = {
+      summaryScore: 0,
+      breakdown: {
+        diagnosis: 0,
+        criticalActions: 0,
+        communication: 0,
+        efficiency: 0
+      },
+      whatWentWell: [],
+      missed: [],
+      redFlagsMissed: [],
+      recommendations: []
+    };
+    
+    // Store feedback result in session (cache it)
+    storeFeedback(sessionId as string, feedbackResult);
+    
+    res.json(feedbackResult);
+    
+  } catch (error: any) {
+    console.error('Error getting feedback:', error);
+    
+    if (error.message && error.message.includes('Session')) {
+      res.status(404).json({ error: error.message });
+      return;
+    }
+    
     res.status(500).json({ error: 'Internal server error' });
   }
 }
