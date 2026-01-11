@@ -8,7 +8,9 @@ import {
   startSession,
   sendMessage,
   recordSessionAction,
-  exportSession
+  exportSession,
+  endSession,
+  getFeedback
 } from '../controllers/sessionController';
 
 const router = Router();
@@ -32,9 +34,21 @@ router.post('/message', sendMessage);
 router.post('/action', recordSessionAction);
 
 /**
+ * POST /session/end
+ * End a session and record submitted diagnosis
+ */
+router.post('/end', endSession);
+
+/**
  * GET /session/export
  * Export full session data for scoring/leaderboard
  */
 router.get('/export', exportSession);
+
+/**
+ * GET /session/feedback
+ * Get feedback/analysis for a completed session
+ */
+router.get('/feedback', getFeedback);
 
 export default router;

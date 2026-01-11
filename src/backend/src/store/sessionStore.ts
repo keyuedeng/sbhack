@@ -4,7 +4,7 @@
  * For hackathon MVP - no database needed
  */
 
-import { Session, CreateSessionParams, SessionAction } from '../models/session.types';
+import { Session, CreateSessionParams, SessionAction, FeedbackResult } from '../models/session.types';
 import { MedicalCase } from '../../../shared/types/case.types';
 import { randomUUID } from 'crypto';
 
@@ -235,8 +235,9 @@ export function recordAction(
  * Mark a session as ended
  * 
  * @param sessionId - The session ID
+ * @param diagnosis - Optional diagnosis submitted by student
  */
-export function markEnded(sessionId: string): void {
+export function markEnded(sessionId: string, diagnosis?: string): void {
   const session = sessions.get(sessionId);
   
   if (!session) {
@@ -247,7 +248,31 @@ export function markEnded(sessionId: string): void {
   session.endedAt = Date.now();
   session.updatedAt = Date.now();
   
-  console.log(`Session ${sessionId} marked as ended`);
+  // Store submitted diagnosis if provided
+  if (diagnosis) {
+    session.submittedDiagnosis = diagnosis.trim();
+  }
+  
+  console.log(`Session ${sessionId} marked as ended${diagnosis ? ` with diagnosis: ${diagnosis}` : ''}`);
+}
+
+/**
+ * Store feedback result in session (cache feedback)
+ * 
+ * @param sessionId - The session ID
+ * @param feedbackResult - The feedback result from F1's analyzeSession
+ */
+export function storeFeedback(sessionId: string, feedbackResult: FeedbackResult): void {
+  const session = sessions.get(sessionId);
+  
+  if (!session) {
+    throw new Error(`Session not found: ${sessionId}`);
+  }
+  
+  session.feedbackResult = feedbackResult;
+  session.updatedAt = Date.now();
+  
+  console.log(`Feedback stored for session ${sessionId} - Score: ${feedbackResult.summaryScore}`);
 }
 
 /**

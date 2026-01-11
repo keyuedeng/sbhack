@@ -36,6 +36,24 @@ export interface Session {
   // Current state
   currentTurn: number; // Number of user messages sent
   isActive: boolean; // True if session is still active
+  
+  // Completion and feedback (F2)
+  submittedDiagnosis?: string; // Diagnosis submitted by student when ending session
+  feedbackResult?: FeedbackResult; // Cached feedback result
+}
+
+export interface FeedbackResult {
+  summaryScore: number;
+  breakdown: {
+    diagnosis: number;
+    criticalActions: number;
+    communication: number;
+    efficiency: number;
+  };
+  whatWentWell: string[];
+  missed: string[];
+  redFlagsMissed: string[];
+  recommendations: string[];
 }
 
 export interface SessionAction {
