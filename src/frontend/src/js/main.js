@@ -11,6 +11,7 @@ import { displayFeedback, clearFeedback } from './components/feedback.js';
 
 // Page modules
 import { initHomePage, showHomePage, hideHomePage } from './pages/homePage.js';
+import { initDashboardPage, showDashboardPage, hideDashboardPage } from './pages/dashboardPage.js';
 import { initTitlePage, showTitlePage, hideTitlePage } from './pages/titlePage.js';
 import {
   initSimulationPage,
@@ -25,9 +26,40 @@ import {
 } from './pages/simulationPage.js';
 import { initFinishPage, showFinishPage, hideFinishPage, setFinishPageState } from './pages/finishPage.js';
 
+// Patient data
+const patients = {
+  1: {
+    number: 1,
+    name: 'Sarah Johnson',
+    age: 58,
+    sex: 'F',
+    caseId: 'chest-pain-001',
+    symptoms: 'chest pain, shortness of breath'
+  },
+  2: {
+    number: 2,
+    name: 'Josh Anderson',
+    age: 10,
+    sex: 'M',
+    caseId: 'chest-pain-001', // Using same case for now, can be changed later
+    symptoms: 'sore throat, fever, rash',
+    introMessage: 'My throat hurts.'
+  },
+  3: {
+    number: 3,
+    name: 'Camilla Lopez',
+    age: 29,
+    sex: 'F',
+    caseId: 'chest-pain-001', // Using same case for now, can be changed later
+    symptoms: 'bloated, stomach pain, nausea',
+    introMessage: "I've been having pain around my belly button area."
+  }
+};
+
 // App State
 let currentSessionId = null;
 let currentMode = null; // 'test' or 'learning'
+let currentPatient = patients[1]; // Default to Patient 1
 let timer = null;
 
 // DOM Elements (shared)
@@ -41,6 +73,7 @@ const submitDiagnosisButton = document.getElementById('submitDiagnosisButton');
 
 // Get page elements for routing
 const homePageEl = document.getElementById('homePage');
+const dashboardPageEl = document.getElementById('dashboardPage');
 const titlePageEl = document.getElementById('titlePage');
 const simulationPageEl = document.getElementById('simulationPage');
 const finishPageEl = document.getElementById('finishPage');
@@ -50,7 +83,8 @@ const finishPageEl = document.getElementById('finishPage');
  */
 function getRoutes() {
   return {
-    '/': homePageEl,
+    '/': dashboardPageEl,
+    '/dashboard': dashboardPageEl,
     '/home': titlePageEl,
     '/simulation': simulationPageEl,
     '/session': simulationPageEl, // alias
@@ -64,6 +98,7 @@ function getRoutes() {
 function showPage(pageElement, updateUrl = true) {
   // Hide all pages
   hideHomePage();
+  hideDashboardPage();
   hideTitlePage();
   hideSimulationPage();
   hideFinishPage();
@@ -71,6 +106,8 @@ function showPage(pageElement, updateUrl = true) {
   // Show the requested page
   if (pageElement === homePageEl) {
     showHomePage();
+  } else if (pageElement === dashboardPageEl) {
+    showDashboardPage();
   } else if (pageElement === titlePageEl) {
     showTitlePage();
   } else if (pageElement === simulationPageEl) {
@@ -98,6 +135,7 @@ function handleRoute(path) {
   
   // Hide all pages
   hideHomePage();
+  hideDashboardPage();
   hideTitlePage();
   hideSimulationPage();
   hideFinishPage();
@@ -105,6 +143,8 @@ function handleRoute(path) {
   // Show the requested page
   if (page === homePageEl) {
     showHomePage();
+  } else if (page === dashboardPageEl) {
+    showDashboardPage();
   } else if (page === titlePageEl) {
     showTitlePage();
   } else if (page === simulationPageEl) {
@@ -118,6 +158,12 @@ function handleRoute(path) {
  * Initialize router
  */
 function initRouter() {
+  // Restore selected patient from sessionStorage
+  const savedPatient = sessionStorage.getItem('selectedPatient');
+  if (savedPatient && patients[savedPatient]) {
+    currentPatient = patients[savedPatient];
+  }
+  
   // Handle initial route
   handleRoute(window.location.pathname);
   
@@ -134,9 +180,9 @@ async function initializeInterface(mode) {
   currentMode = mode;
   
   try {
-    // Start session with backend
+    // Start session with backend using selected patient's case
     const response = await apiService.startSession(
-      'chest-pain-001',
+      currentPatient.caseId,
       1, // level
       'Dr. User', // userName
       420 // 7 minutes time limit
@@ -144,11 +190,12 @@ async function initializeInterface(mode) {
 
     currentSessionId = response.sessionId;
 
-    // Load patient info from response
+    // Load patient info from response using selected patient
     const patientInfo = {
-      name: 'Sarah Johnson',
-      age: 58,
-      sex: 'F',
+      name: currentPatient.name,
+      age: currentPatient.age,
+      sex: currentPatient.sex,
+      symptoms: currentPatient.symptoms,
       chiefComplaint: response.introLine || 'Chest pain for 2 hours'
     };
 
@@ -174,10 +221,11 @@ async function initializeInterface(mode) {
     showPage(simulationPageEl);
     showDiagnoseButton();
     
-    // Add intro message
-    if (response.introLine) {
+    // Add intro message - use patient-specific intro if available, otherwise use API response
+    const introMessage = currentPatient.introMessage || response.introLine;
+    if (introMessage) {
       setTimeout(() => {
-        addMessage(messagesContainer, response.introLine, false);
+        addMessage(messagesContainer, introMessage, false);
       }, 500);
     }
 
@@ -284,14 +332,15 @@ function goHome() {
   timer.stop();
   currentSessionId = null;
   currentMode = null;
+  currentPatient = patients[1]; // Reset to default patient
 
   // Clear state
   const messagesContainer = getMessagesContainer();
   clearMessages(messagesContainer);
   clearFeedback();
 
-  // Navigate to home
-  window.location.href = '/home';
+  // Navigate to dashboard
+  window.location.href = '/';
 }
 
 // Initialize
@@ -301,9 +350,27 @@ document.addEventListener('DOMContentLoaded', () => {
   
   // Initialize pages
   initHomePage();
+  initDashboardPage(
+    () => {
+      currentPatient = patients[1];
+      sessionStorage.setItem('selectedPatient', '1');
+      window.location.href = '/home';
+    },
+    () => {
+      currentPatient = patients[2];
+      sessionStorage.setItem('selectedPatient', '2');
+      window.location.href = '/home';
+    },
+    () => {
+      currentPatient = patients[3];
+      sessionStorage.setItem('selectedPatient', '3');
+      window.location.href = '/home';
+    }
+  );
   initTitlePage(
     () => initializeInterface('learning'),
-    () => initializeInterface('test')
+    () => initializeInterface('test'),
+    () => currentPatient // Pass function to get current patient
   );
   initSimulationPage(goHome, sendMessage, showDiagnosisModal);
   initFinishPage(goHome);

@@ -47,15 +47,62 @@
         #finishPage.active {
             display: flex !important;
         }
+        
+        /* Adjust input area in test mode (when feedback sidebar is hidden) */
+        /* Button will be moved into input area via JavaScript in test mode */
+        
+        /* Align diagnose button with send button in test mode */
+        #inputAreaContainer.test-mode #diagnoseButton {
+            margin-top: 2px;
+        }
+        
+        /* Make feedback sidebar align with top of input area in learning mode */
+        #feedbackSidebar:not(.hidden) {
+            align-self: flex-start;
+        }
     </style>
 </head>
 <body class="bg-gradient-to-br from-gray-50 to-gray-100 min-h-screen font-sans">
     
     <!-- Home Page (Simple) -->
-    <div id="homePage" class="page active fixed inset-0 bg-gray-50 flex items-center justify-center z-[1000]">
+    <div id="homePage" class="page fixed inset-0 bg-gray-50 flex items-center justify-center z-[1000]">
         <div class="text-6xl font-bold text-gray-800">home</div>
     </div>
     
+    <!-- Dashboard Page -->
+    <div id="dashboardPage" class="page fixed inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col z-[1000]">
+        <!-- Title -->
+        <div class="text-center pt-40 pb-8">
+            <div class="text-6xl font-extrabold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                MedCase
+            </div>
+        </div>
+        
+        <!-- Patient Rows -->
+        <div class="flex-1 flex flex-col items-center justify-start gap-8 px-8 pt-24">
+            <!-- Row 1: Patient 1 -->
+            <div class="w-full max-w-4xl">
+                <button id="patient1Button" class="text-3xl font-semibold text-gray-700 hover:text-blue-600 transition-colors cursor-pointer text-left w-full">
+                    Patient 1 <span class="text-xl text-gray-500">(Sarah Johnson)</span>
+                </button>
+            </div>
+            
+            <!-- Row 2: Patient 2 -->
+            <div class="w-full max-w-4xl">
+                <button id="patient2Button" class="text-3xl font-semibold text-gray-700 hover:text-blue-600 transition-colors cursor-pointer text-left w-full">
+                    Patient 2 <span class="text-xl text-gray-500">(Josh Anderson)</span>
+                </button>
+            </div>
+            
+            <!-- Row 3: Patient 3 -->
+            <div class="w-full max-w-4xl">
+                <button id="patient3Button" class="text-3xl font-semibold text-gray-700 hover:text-blue-600 transition-colors cursor-pointer text-left w-full">
+                    Patient 3 <span class="text-xl text-gray-500">(Camilla Lopez)</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- Title Page -->
     <div id="titlePage" class="page fixed inset-0 bg-gradient-to-br from-blue-50 via-white to-purple-50 flex flex-col items-center justify-center z-[1000]">
         <div class="text-center">
@@ -75,7 +122,7 @@
     <div id="simulationPage" class="page fixed inset-0 bg-gray-50 flex flex-col z-[900]">
         <!-- Header Bar -->
         <div class="bg-white/95 backdrop-blur-sm border-b border-gray-200 px-6 py-3 flex items-center justify-between shadow-sm">
-            <div class="text-xl font-bold text-gray-800">Medical Simulation</div>
+            <div class="text-xl font-bold text-gray-800">MedCase</div>
             <div class="flex items-center gap-4">
                 <div id="timer" class="bg-red-50 text-red-700 px-4 py-2 rounded-lg text-xl font-bold font-mono border border-red-200">5:00</div>
                 <button id="homeButton" class="w-10 h-10 bg-gray-100 hover:bg-gray-200 rounded-full flex items-center justify-center transition-colors">
@@ -99,7 +146,6 @@
                                 <div class="text-sm text-gray-600">Age: Loading...</div>
                                 <div class="text-sm text-gray-600">Gender: Loading...</div>
                             </div>
-                            <div id="patientInfoSymptoms" class="text-xs text-gray-500 leading-relaxed bg-gray-50 p-2 rounded">Chief Complaint: Loading...</div>
                         </div>
                         <div class="w-24 h-28 bg-gray-200 rounded-lg overflow-hidden flex-shrink-0 border-2 border-gray-300">
                             <img id="patientInfoImage" src="" alt="Patient" class="w-full h-full object-cover">
@@ -122,7 +168,7 @@
                 </div>
 
                 <!-- Input Area -->
-                <div class="bg-white border-t border-gray-200 p-4 shadow-lg">
+                <div id="inputAreaContainer" class="bg-white border-t border-gray-200 p-4 shadow-lg">
                     <div class="max-w-4xl mx-auto flex gap-3 items-end">
                         <input type="text" id="messageInput" placeholder="Ask the patient a question..." class="flex-1 px-4 py-3 border-2 border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base">
                         <button id="microphoneButton" class="w-12 h-12 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-full flex items-center justify-center transition-colors flex-shrink-0">
@@ -148,9 +194,9 @@
         </div>
 
         <!-- Diagnose Button -->
-        <div class="absolute bottom-6 left-1/2 transform -translate-x-1/2 z-[1500]">
-            <button id="diagnoseButton" class="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-none px-12 py-4 text-lg font-semibold rounded-xl shadow-2xl hover:shadow-3xl hover:from-purple-700 hover:to-purple-800 active:scale-[0.98] transition-all hidden">
-                🎯 I'm ready to diagnose
+        <div id="diagnoseButtonContainer" class="absolute bottom-4 right-6 z-[1500]">
+            <button id="diagnoseButton" class="bg-gradient-to-r from-purple-600 to-purple-700 text-white border-none px-4 py-3 text-base font-semibold rounded-xl shadow-lg hover:shadow-xl hover:from-purple-700 hover:to-purple-800 active:scale-[0.98] transition-all hidden">
+                Diagnose
             </button>
         </div>
     </div>
