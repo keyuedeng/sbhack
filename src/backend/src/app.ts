@@ -56,14 +56,16 @@ app.use('/tts', ttsRoutes);
 // Serve frontend static files (relative to project root)
 const frontendPublicPath = path.join(process.cwd(), 'src', 'frontend', 'public');
 const frontendSrcPath = path.join(process.cwd(), 'src', 'frontend', 'src');
+const backendPublicPath = path.join(process.cwd(), 'src', 'backend', 'public');
 
 app.use(express.static(frontendPublicPath));
 app.use('/src', express.static(frontendSrcPath));
+app.use('/audio', express.static(path.join(backendPublicPath, 'audio')));
 
 // Serve index.html for all other routes (SPA fallback) - must be before 404 handler
 app.get('*', (req, res, next) => {
   // Only serve HTML for non-API routes
-  if (!req.path.startsWith('/session') && !req.path.startsWith('/health') && !req.path.startsWith('/src')) {
+  if (!req.path.startsWith('/session') && !req.path.startsWith('/health') && !req.path.startsWith('/src') && !req.path.startsWith('/audio')) {
     res.sendFile(path.join(frontendPublicPath, 'index.html'));
   } else {
     next();

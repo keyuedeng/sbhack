@@ -24,7 +24,7 @@ export function addMessage(container, text, isUser) {
   } else {
     messageDiv.className = 'mb-4 flex items-start justify-start gap-2 animate-fade-in';
     messageDiv.innerHTML = `
-      <div class="max-w-[75%] bg-white border-2 border-gray-200 text-gray-800 px-5 py-3 rounded-2xl rounded-bl-sm shadow-sm">
+      <div class="max-w-[75%] bg-white border-2 border-gray-200 text-gray-800 px-5 py-3 rounded-2xl rounded-bl-sm shadow-sm relative group">
         <p class="text-base leading-relaxed">${escapeHtml(text)}</p>
       </div>
       ${textToSpeech.isAvailable() ? `
@@ -58,12 +58,14 @@ export function addMessage(container, text, isUser) {
   }
   
   container.appendChild(messageDiv);
+  
   // Auto-scroll to bottom with smooth scrolling
   container.scrollTo({
     top: container.scrollHeight,
     behavior: 'smooth'
   });
 }
+
 
 /**
  * Clear all messages from container

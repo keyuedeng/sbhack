@@ -183,6 +183,35 @@ class ApiService {
       throw error;
     }
   }
+
+  /**
+   * Generate text-to-speech audio from text
+   * @param {string} text - The text to convert to speech
+   * @returns {Promise<{audioUrl: string}>}
+   */
+  async generateTTS(text) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/session/tts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          text,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to generate speech');
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error generating TTS:', error);
+      throw error;
+    }
+  }
 }
 
 export const apiService = new ApiService();
